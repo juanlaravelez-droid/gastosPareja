@@ -129,6 +129,28 @@ select {
   box-shadow: 0 24px 70px rgb(39 57 91 / 10%);
 }
 
+.auth-panel {
+  padding-top: 23px;
+}
+
+.auth-logo {
+  display: block;
+  width: 150px;
+  height: 136px;
+  margin: -7px auto 3px;
+  border-radius: 18px;
+  object-fit: contain;
+}
+
+.auth-couple {
+  display: block;
+  width: calc(100% + 60px);
+  height: 190px;
+  margin: 17px -30px -30px;
+  object-fit: cover;
+  object-position: center 54%;
+}
+
 .access-panel::after {
   position: absolute;
   z-index: -1;
@@ -1186,6 +1208,22 @@ select {
   .access-panel {
     margin: 34px auto;
     padding: 21px;
+  }
+
+  .auth-panel {
+    padding-top: 19px;
+  }
+
+  .auth-logo {
+    width: 128px;
+    height: 118px;
+    margin-top: -5px;
+  }
+
+  .auth-couple {
+    width: calc(100% + 42px);
+    height: 165px;
+    margin: 16px -21px -21px;
   }
 
   .welcome {

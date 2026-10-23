@@ -28,7 +28,8 @@
         <h1 id="config-title">Conecten su proyecto</h1>
         <p class="panel-intro">La app necesita la URL y la clave publicable de Supabase. Completen <code>supabase-config.js</code>, ejecuten <code>supabase/schema.sql</code> y sirvan esta carpeta por HTTP para habilitar el acceso compartido.</p>
       </section>
-      <section id="auth-view" class="panel access-panel" aria-labelledby="auth-title" hidden>
+      <section id="auth-view" class="panel access-panel auth-panel" aria-labelledby="auth-title" hidden>
+        <img class="auth-logo" src="img/logo.jpg" alt="Dúo, finanzas en pareja">
         <p class="eyebrow">ACCESO SEGURO</p>
         <h1 id="auth-title">Entren a su billetera</h1>
         <p class="panel-intro">Escriban su correo y les enviaremos un enlace de acceso. No necesitan contraseña.</p>
@@ -40,6 +41,7 @@
           <button class="button button-primary button-full" type="submit">Enviar enlace de acceso <span aria-hidden="true">→</span></button>
         </form>
         <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
+        <img class="auth-couple" src="img/pareja.jpg" alt="Pareja conversando y organizando sus finanzas juntos">
       </section>
 
       <section id="setup-view" class="panel access-panel" aria-labelledby="setup-title" hidden>
