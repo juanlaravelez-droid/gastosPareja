@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f6f2">
+    <meta name="description" content="Una billetera compartida para organizar ingresos, gastos y metas de ahorro en pareja.">
+    <title>Billetera en pareja</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Billetera en pareja, inicio">
+          <span class="brand-mark" aria-hidden="true">b</span>
+          <span>Billetera <span class="brand-light">en pareja</span></span>
+        </a>
+        <div class="session-controls">
+          <span id="session-email" class="topbar-note" hidden></span>
+          <button id="logout-button" class="button button-light" type="button" hidden>Cerrar sesión</button>
+          <span id="offline-note" class="topbar-note"><span class="status-dot"></span> Billetera compartida y privada</span>
+        </div>
+      </header>
+
+      <section id="config-view" class="panel access-panel" aria-labelledby="config-title" hidden>
+        <p class="eyebrow">CONFIGURACIÓN PENDIENTE</p>
+        <h1 id="config-title">Conecten su proyecto</h1>
+        <p class="panel-intro">La app necesita la URL y la clave publicable de Supabase. Completen <code>supabase-config.js</code>, ejecuten <code>supabase/schema.sql</code> y sirvan esta carpeta por HTTP para habilitar el acceso compartido.</p>
+      </section>
+      <section id="auth-view" class="panel access-panel" aria-labelledby="auth-title" hidden>
+        <p class="eyebrow">ACCESO SEGURO</p>
+        <h1 id="auth-title">Entren a su billetera</h1>
+        <p class="panel-intro">Escriban su correo y les enviaremos un enlace de acceso. No necesitan contraseña.</p>
+        <form id="form-login" class="stacked-form" novalidate>
+          <label>
+            <span>Correo electrónico</span>
+            <input id="login-email" name="email" type="email" autocomplete="email" placeholder="ustedes@correo.com" required>
+          </label>
+          <button class="button button-primary button-full" type="submit">Enviar enlace de acceso <span aria-hidden="true">→</span></button>
+        </form>
+        <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="setup-view" class="panel access-panel" aria-labelledby="setup-title" hidden>
+        <p class="eyebrow">SU ESPACIO COMPARTIDO</p>
+        <h1 id="setup-title">Crear billetera</h1>
+        <p id="setup-message" class="panel-intro">Aún no pertenecen a una billetera. Pueden crear una o pedir a su pareja que les envíe una invitación a este correo.</p>
+        <form id="form-wallet" class="stacked-form" novalidate>
+          <label>
+            <span>Nombre de la primera persona</span>
+            <input name="miembro1" type="text" maxlength="40" required>
+          </label>
+          <label>
+            <span>Nombre de la segunda persona</span>
+            <input name="miembro2" type="text" maxlength="40" required>
+          </label>
+          <button class="button button-primary button-full" type="submit">Crear billetera <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+
+      <main id="dashboard" hidden>
+        <section class="welcome">
+          <div>
+            <p class="eyebrow">FINANZAS COMPARTIDAS</p>
+            <h1>Un plan en común,<br><span>paso a paso.</span></h1>
+            <p class="welcome-copy">Registren sus ingresos y conviertan sus planes en metas alcanzables.</p>
+          </div>
+          <div class="welcome-art" aria-hidden="true">
+            <span class="art-sun"></span>
+            <span class="art-coin coin-one">$</span>
+            <span class="art-coin coin-two">$</span>
+            <span class="art-plant">✳</span>
+          </div>
+        </section>
+
+        <div id="notification" class="notification" role="status" aria-live="polite" hidden></div>
+
+        <section class="summary-section" aria-labelledby="summary-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">VISTA GENERAL</p>
+              <h2 id="summary-title">Así va su billetera</h2>
+            </div>
+            <span class="privacy-label"><span aria-hidden="true">◉</span> Solo ustedes dos</span>
+          </div>
+          <div class="summary-grid">
+            <article class="summary-card balance-card">
+              <div class="card-label"><span class="metric-icon">↗</span> Saldo disponible</div>
+              <p id="saldo-disponible" class="metric-value">$ 0</p>
+              <p class="metric-caption">Listo para asignar a sus metas</p>
+            </article>
+            <article class="summary-card">
+              <div class="card-label"><span class="metric-icon income-icon">＋</span> Total aportado</div>
+              <p id="total-ingresos" class="metric-value">$ 0</p>
+              <p class="metric-caption">Ingresos registrados</p>
+            </article>
+            <article class="summary-card">
+              <div class="card-label"><span class="metric-icon expense-summary-icon">−</span> Total gastado</div>
+              <p id="total-gastos" class="metric-value">$ 0</p>
+              <p class="metric-caption">Gastos registrados</p>
+            </article>
+            <article class="summary-card">
+              <div class="card-label"><span class="metric-icon saved-icon">⌂</span> Ahorrado en metas</div>
+              <p id="total-ahorrado" class="metric-value">$ 0</p>
+              <p class="metric-caption">Fondos que ya tienen un destino</p>
+            </article>
+          </div>
+          <div class="member-summary" aria-label="Aportes por miembro">
+            <div class="member-line">
+              <span class="member-avatar avatar-one">1</span>
+              <span id="nombre-miembro1" class="member-name">Miembro 1</span>
+              <span id="aporte-miembro1" class="member-amount">$ 0</span>
+            </div>
+            <div class="member-line">
+              <span class="member-avatar avatar-two">2</span>
+              <span id="nombre-miembro2" class="member-name">Miembro 2</span>
+              <span id="aporte-miembro2" class="member-amount">$ 0</span>
+            </div>
+          </div>
+          <form id="form-nombres" class="member-settings" novalidate>
+            <p class="settings-title">Personalicen sus nombres</p>
+            <label>
+              <span>Persona 1</span>
+              <input id="nombre-miembro1-edicion" name="miembro1" type="text" maxlength="40" required>
+            </label>
+            <label>
+              <span>Persona 2</span>
+              <input id="nombre-miembro2-edicion" name="miembro2" type="text" maxlength="40" required>
+            </label>
+            <button class="button button-dark" type="submit">Guardar nombres</button>
+          </form>
+        </section>
+
+        <section class="workspace-grid" aria-label="Administrar billetera">
+          <div class="main-column">
+            <section class="panel goals-panel" aria-labelledby="goals-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">LO QUE ESTÁN CONSTRUYENDO</p>
+                  <h2 id="goals-title">Metas de ahorro</h2>
+                </div>
+                <span id="goal-count" class="count-pill">0 metas</span>
+              </div>
+              <div id="goals-list" class="goals-list"></div>
+              <div id="goals-empty" class="empty-state" hidden>
+                <span class="empty-icon" aria-hidden="true">✳</span>
+                <h3>Todo gran plan empieza con una meta</h3>
+                <p>Creen su primera meta y empiecen a ahorrar juntos.</p>
+              </div>
+              <form id="form-meta" class="inline-form goal-form" novalidate>
+                <div class="form-title">
+                  <span class="plus-mark" aria-hidden="true">＋</span>
+                  <div>
+                    <h3>Crear una meta</h3>
+                    <p>Pónganle nombre a eso que quieren lograr.</p>
+                  </div>
+                </div>
+                <label>
+                  <span>Nombre de la meta</span>
+                  <input id="meta-titulo" name="titulo" type="text" minlength="3" maxlength="80" placeholder="Ej. Viaje a la playa" required>
+                </label>
+                <label>
+                  <span>¿Cuánto necesitan?</span>
+                  <div class="input-with-prefix">
+                    <span>$</span>
+                    <input id="meta-objetivo" name="montoObjetivo" type="number" min="0.01" step="any" inputmode="decimal" placeholder="3.000.000" required>
+                  </div>
+                </label>
+                <button class="button button-dark button-full" type="submit">Crear meta <span aria-hidden="true">→</span></button>
+              </form>
+            </section>
+
+            <section class="panel history-panel" aria-labelledby="history-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">CADA APORTE CUENTA</p>
+                  <h2 id="history-title">Últimos ingresos</h2>
+                </div>
+                <span id="income-count" class="count-pill">0 ingresos</span>
+              </div>
+              <div id="income-list" class="income-list"></div>
+              <div id="income-empty" class="empty-state compact-empty" hidden>
+                <span class="empty-icon" aria-hidden="true">↗</span>
+                <h3>Aún no hay ingresos</h3>
+                <p>Cuando registren uno, podrán verlo aquí.</p>
+              </div>
+            </section>
+
+            <section class="panel history-panel" aria-labelledby="expenses-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">GASTOS COMPARTIDOS</p>
+                  <h2 id="expenses-title">Últimos gastos</h2>
+                </div>
+                <span id="expense-count" class="count-pill">0 gastos</span>
+              </div>
+              <div id="expense-list" class="income-list"></div>
+              <div id="expense-empty" class="empty-state compact-empty" hidden>
+                <span class="empty-icon" aria-hidden="true">−</span>
+                <h3>Aún no hay gastos</h3>
+                <p>Registren los gastos compartidos para ver el saldo real.</p>
+              </div>
+            </section>
+          </div>
+
+          <aside class="side-column">
+            <section class="panel income-panel" aria-labelledby="income-form-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">SUMAR AL FONDO</p>
+                  <h2 id="income-form-title">Nuevo ingreso</h2>
+                </div>
+                <span class="form-icon" aria-hidden="true">＋</span>
+              </div>
+              <p class="panel-intro">Cada aporte hace más grande el plan de los dos.</p>
+              <form id="form-ingreso" class="stacked-form" novalidate>
+                <label>
+                  <span>¿Quién aporta?</span>
+                  <select id="ingreso-autor" name="autor" required>
+                    <option value="miembro1">Miembro 1</option>
+                    <option value="miembro2">Miembro 2</option>
+                  </select>
+                </label>
+                <label>
+                  <span>¿Cuánto van a aportar?</span>
+                  <div class="input-with-prefix">
+                    <span>$</span>
+                    <input id="ingreso-monto" name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required>
+                  </div>
+                </label>
+                <button class="button button-primary button-full" type="submit">Agregar ingreso <span aria-hidden="true">→</span></button>
+              </form>
+            </section>
+            <section class="panel expense-panel" aria-labelledby="expense-form-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">ACTUALIZAR EL SALDO</p>
+                  <h2 id="expense-form-title">Nuevo gasto</h2>
+                </div>
+                <span class="form-icon expense-icon" aria-hidden="true">−</span>
+              </div>
+              <p class="panel-intro">Registren un gasto para descontarlo del saldo compartido.</p>
+              <form id="form-gasto" class="stacked-form" novalidate>
+                <label>
+                  <span>Descripción</span>
+                  <input name="descripcion" type="text" minlength="2" maxlength="100" placeholder="Ej. Mercado" required>
+                </label>
+                <label>
+                  <span>¿Cuánto gastaron?</span>
+                  <div class="input-with-prefix">
+                    <span>$</span>
+                    <input name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required>
+                  </div>
+                </label>
+                <button class="button button-dark button-full" type="submit">Registrar gasto <span aria-hidden="true">→</span></button>
+              </form>
+            </section>
+            <section id="invite-panel" class="panel invite-panel" aria-labelledby="invite-title">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">BILLETERA EN PAREJA</p>
+                  <h2 id="invite-title">Invitar a alguien</h2>
+                </div>
+                <span class="form-icon" aria-hidden="true">✉</span>
+              </div>
+              <p class="panel-intro">Enviaremos un enlace de acceso a su correo. Solo habrá dos integrantes.</p>
+              <form id="form-invitacion" class="stacked-form" novalidate>
+                <label>
+                  <span>Correo de la persona</span>
+                  <input name="email" type="email" autocomplete="email" placeholder="pareja@correo.com" required>
+                </label>
+                <button class="button button-dark button-full" type="submit">Enviar invitación <span aria-hidden="true">→</span></button>
+              </form>
+              <p id="invite-message" class="form-message" role="status" aria-live="polite"></p>
+            </section>
+            <div class="tip-card">
+              <span class="tip-sparkle" aria-hidden="true">✳</span>
+              <p class="eyebrow">UN TIP PARA USTEDES</p>
+              <p>Los pequeños aportes constantes también construyen grandes planes.</p>
+            </div>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Billetera en pareja</span>
+        <span>Sus finanzas, a su manera.</span>
+      </footer>
+    </div>
+  </body>
+</html>

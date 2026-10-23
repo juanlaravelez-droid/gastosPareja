@@ -1,0 +1,7 @@
+project_id = "billetera-parejas"
+
+[functions.invite-member]
+verify_jwt = true
+
+[functions.accept-invitation]
+verify_jwt = true
