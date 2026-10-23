@@ -69,6 +69,9 @@ function getErrorMessage(error) {
 }
 
 async function getEdgeFunctionErrorMessage(error) {
+  if (error?.name === "FunctionsFetchError") {
+    return "No se pudo conectar con invite-member. Comprueba que la función esté desplegada en el proyecto Supabase configurado y que permita solicitudes desde este sitio.";
+  }
   if (error?.context instanceof Response) {
     try {
       const body = await error.context.clone().json();

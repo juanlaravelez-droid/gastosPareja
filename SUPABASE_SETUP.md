@@ -26,17 +26,19 @@ En **Authentication → SMTP Settings**, configura un proveedor SMTP real para q
 
 ## 3. Desplegar las Edge Functions
 
-Instala y autentica Supabase CLI, enlaza el proyecto y despliega las dos funciones desde la carpeta raíz:
+El endpoint de invitación debe estar desplegado en el mismo proyecto Supabase que aparece en `supabase-config.example.js`. Si la consola del navegador informa CORS o `Failed to send a request to the Edge Function`, comprueba primero en **Supabase → Edge Functions** que `invite-member` esté desplegada: un `404` en `/functions/v1/invite-member` significa que la función aún no existe en ese proyecto; no es un problema que se resuelva cambiando el formulario o los encabezados CORS.
+
+Instala/autentica Supabase CLI, enlaza el proyecto correcto y despliega las dos funciones desde la carpeta raíz:
 
 ```powershell
 supabase login
-supabase link --project-ref TU_PROJECT_REF
-supabase functions deploy invite-member
-supabase functions deploy accept-invitation
-supabase secrets set APP_URL=https://tu-dominio.example
+supabase link --project-ref kgligqwuhvkhddjftdmc
+supabase functions deploy invite-member --project-ref kgligqwuhvkhddjftdmc
+supabase functions deploy accept-invitation --project-ref kgligqwuhvkhddjftdmc
+supabase secrets set APP_URL=https://juanlaravelez-droid.github.io/gastosPareja/ --project-ref kgligqwuhvkhddjftdmc
 ```
 
-Para desarrollo local, usa `http://localhost:8000` como `APP_URL` y permite ese origen en las URL de redirección de Auth. Supabase proporciona `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` a las Edge Functions; no copies el secreto `service_role` al frontend.
+El secreto `APP_URL` debe apuntar a la aplicación desplegada; para pruebas locales, configura temporalmente `http://localhost:8000` y vuelve a cambiarlo al publicar. Agrega la URL de GitHub Pages y los orígenes locales usados en **Authentication → URL Configuration → Redirect URLs**. Supabase proporciona `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` a las Edge Functions; no copies el secreto `service_role` al frontend.
 
 `invite-member` comprueba la membresía y que la billetera tenga cupo, registra la invitación y solicita a Supabase Auth el envío del enlace al correo invitado. Tras acceder con ese correo, `accept-invitation` valida que exista una invitación pendiente antes de incorporar a la persona como segundo miembro.
 
