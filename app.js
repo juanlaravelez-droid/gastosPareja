@@ -528,6 +528,28 @@ function renderGoals() {
             </form>
           `}
         </div>
+        <div class="goal-actions">
+          <button class="button button-light button-small" type="button" data-action="editar-meta" data-goal-id="${escapeHtml(goal.id)}" aria-expanded="false">Editar</button>
+          <button class="button button-light button-small goal-delete-button" type="button" data-action="eliminar-meta" data-goal-id="${escapeHtml(goal.id)}">Eliminar</button>
+        </div>
+        <form class="goal-edit-form stacked-form" data-form="editar-meta" data-goal-id="${escapeHtml(goal.id)}" hidden>
+          <label>
+            <span>Nombre de la meta</span>
+            <input name="titulo" type="text" minlength="3" maxlength="80" value="${escapeHtml(goal.title)}" required>
+          </label>
+          <label>
+            <span>Monto objetivo (mínimo ${formatCurrency(Number(goal.current_amount))})</span>
+            <input name="montoObjetivo" type="number" min="${Number(goal.current_amount)}" step="any" inputmode="decimal" value="${Number(goal.target_amount)}" required>
+          </label>
+          <label>
+            <span>Fecha objetivo (opcional)</span>
+            <input name="fechaObjetivo" type="date" value="${escapeHtml(goal.target_date || "")}">
+          </label>
+          <div class="goal-edit-actions">
+            <button class="button button-primary button-small" type="submit">Guardar cambios</button>
+            <button class="button button-light button-small" type="button" data-action="cancelar-edicion-meta">Cancelar</button>
+          </div>
+        </form>
       </article>
     `;
   }).join("");
@@ -788,10 +810,96 @@ async function handleNewGoal(event) {
   await refreshAndNotify("Meta creada.");
 }
 
+async function handleUpdateGoal(form) {
+  const data = new FormData(form);
+  const title = String(data.get("titulo") || "").trim();
+  const targetAmount = Number(data.get("montoObjetivo"));
+  const targetDate = String(data.get("fechaObjetivo") || "").trim() || null;
+  const goal = state.goals.find((item) => item.id === form.dataset.goalId);
+  if (!goal) {
+    notify("No se encontró la meta seleccionada.", true);
+    return;
+  }
+  if (title.length < 3) {
+    notify("El nombre de la meta debe tener al menos 3 caracteres.", true);
+    return;
+  }
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+    notify("El monto objetivo debe ser mayor que cero.", true);
+    return;
+  }
+  if (targetAmount < Number(goal.current_amount)) {
+    notify("El monto objetivo no puede ser menor a lo que ya han ahorrado.", true);
+    return;
+  }
+  if (targetDate && !isValidDateInput(targetDate)) {
+    notify("Selecciona una fecha objetivo válida.", true);
+    return;
+  }
+
+  if (demoMode) {
+    commitDemoChange(() => {
+      goal.title = title;
+      goal.target_amount = targetAmount;
+      goal.target_date = targetDate;
+    }, "Meta actualizada en la demo.");
+    return;
+  }
+
+  const { error } = await supabase.rpc("update_goal", {
+    p_wallet_id: state.wallet.id,
+    p_goal_id: goal.id,
+    p_title: title,
+    p_target_amount: targetAmount,
+    p_target_date: targetDate,
+  });
+  if (error) {
+    console.error("No se pudo actualizar la meta.", error);
+    notify(getErrorMessage(error), true);
+    return;
+  }
+  await refreshAndNotify("Meta actualizada.");
+}
+
+async function handleDeleteGoal(goalId) {
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal) {
+    notify("No se encontró la meta seleccionada.", true);
+    return;
+  }
+  const savedAmount = Number(goal.current_amount);
+  const confirmation = savedAmount > 0
+    ? `¿Eliminar la meta "${goal.title}"? Los ${formatCurrency(savedAmount)} ahorrados volverán al saldo disponible.`
+    : `¿Eliminar la meta "${goal.title}"?`;
+  if (!window.confirm(confirmation)) return;
+
+  if (demoMode) {
+    commitDemoChange(() => {
+      state.goals = state.goals.filter((item) => item.id !== goalId);
+    }, "Meta eliminada de la demo; sus fondos volvieron al saldo disponible.");
+    return;
+  }
+
+  const { error } = await supabase.rpc("delete_goal", {
+    p_wallet_id: state.wallet.id,
+    p_goal_id: goalId,
+  });
+  if (error) {
+    console.error("No se pudo eliminar la meta.", error);
+    notify(getErrorMessage(error), true);
+    return;
+  }
+  await refreshAndNotify("Meta eliminada; sus fondos volvieron al saldo disponible.");
+}
+
 async function handleContribute(event) {
   event.preventDefault();
   const form = event.target.closest('form[data-form="abonar-meta"]');
-  if (!form) return;
+  if (!form) {
+    const editForm = event.target.closest('form[data-form="editar-meta"]');
+    if (editForm) await handleUpdateGoal(editForm);
+    return;
+  }
   const amount = Number(new FormData(form).get("montoAbonar"));
   if (!Number.isFinite(amount) || amount <= 0) {
     notify("El aporte debe ser un monto mayor que cero.", true);
@@ -850,6 +958,29 @@ async function handleDeleteIncome(event) {
     return;
   }
   await refreshAndNotify("Ingreso eliminado.");
+}
+
+function handleGoalActions(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+
+  if (button.dataset.action === "editar-meta") {
+    const card = button.closest(".goal-card");
+    const form = card?.querySelector('form[data-form="editar-meta"]');
+    if (!form) return;
+    form.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    form.querySelector('input[name="titulo"]').focus();
+  } else if (button.dataset.action === "cancelar-edicion-meta") {
+    const card = button.closest(".goal-card");
+    const form = card?.querySelector('form[data-form="editar-meta"]');
+    if (!form) return;
+    form.reset();
+    form.hidden = true;
+    card.querySelector('[data-action="editar-meta"]')?.setAttribute("aria-expanded", "false");
+  } else if (button.dataset.action === "eliminar-meta") {
+    void handleDeleteGoal(button.dataset.goalId);
+  }
 }
 
 async function handleInvite(event) {
@@ -942,6 +1073,7 @@ function initializeEventHandlers() {
   document.querySelector("#form-meta").addEventListener("submit", handleNewGoal);
   document.querySelector("#form-invitacion").addEventListener("submit", handleInvite);
   document.querySelector("#goals-list").addEventListener("submit", handleContribute);
+  document.querySelector("#goals-list").addEventListener("click", handleGoalActions);
   document.querySelector("#income-list").addEventListener("click", handleDeleteIncome);
   document.querySelector("#logout-button").addEventListener("click", handleLogout);
   document.querySelectorAll("[data-start-demo]").forEach((button) => {

@@ -8,7 +8,7 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
 
 1. Crea un proyecto en [Supabase](https://supabase.com/) y espera a que la base de datos termine de inicializarse.
 2. En **SQL Editor**, ejecuta el contenido de `supabase/schema.sql`.
-   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. La migración `20261023000000_allow_income_author_selection.sql` permite atribuir los ingresos a cualquiera de los integrantes, y `20261024000000_add_goal_target_date.sql` agrega una fecha objetivo opcional a las metas.
+   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. La migración `20261023000000_allow_income_author_selection.sql` permite atribuir los ingresos a cualquiera de los integrantes, `20261024000000_add_goal_target_date.sql` agrega una fecha objetivo opcional, y `20261025000000_manage_savings_goals.sql` habilita editar y eliminar metas de forma segura.
 3. En **Project Settings → API**, copia la URL del proyecto y la clave publicable (o la clave `anon` heredada).
 4. Pega esos valores en `supabase-config.example.js`:
 

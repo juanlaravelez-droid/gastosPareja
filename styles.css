@@ -835,6 +835,28 @@ h2 {
   font-size: 10px;
 }
 
+.goal-actions,
+.goal-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.goal-edit-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.goal-edit-form[hidden] {
+  display: none;
+}
+
+.goal-delete-button {
+  color: var(--red);
+}
+
 .contribute-form {
   display: flex;
   gap: 6px;
