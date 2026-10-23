@@ -183,6 +183,15 @@ function renderApp() {
   document.querySelector("#aporte-miembro2").textContent = formatCurrency(memberTotals[1]);
   document.querySelector("#nombre-miembro1-edicion").value = state.wallet.nombre_miembro1;
   document.querySelector("#nombre-miembro2-edicion").value = state.wallet.nombre_miembro2;
+  const incomeAuthor = document.querySelector("#ingreso-autor");
+  const authorName = state.memberIndex === 1
+    ? state.wallet.nombre_miembro1
+    : state.wallet.nombre_miembro2;
+  incomeAuthor.innerHTML = `
+    <option value="${escapeHtml(state.user.id)}">${escapeHtml(authorName)}</option>
+  `;
+  incomeAuthor.value = state.user.id;
+  incomeAuthor.disabled = true;
   document.querySelector("#goal-count").textContent = `${state.goals.length} ${state.goals.length === 1 ? "meta" : "metas"}`;
   document.querySelector("#income-count").textContent = `${state.incomes.length} ${state.incomes.length === 1 ? "ingreso" : "ingresos"}`;
   document.querySelector("#expense-count").textContent = `${state.expenses.length} ${state.expenses.length === 1 ? "gasto" : "gastos"}`;
