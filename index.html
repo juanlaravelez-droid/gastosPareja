@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f5f6f2">
     <meta name="description" content="Una billetera compartida para organizar ingresos, gastos y metas de ahorro en pareja.">
     <title>Billetera en pareja</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <script type="module" src="app.js"></script>
   </head>
   <body>
@@ -17,6 +17,7 @@
           <span>Billetera <span class="brand-light">en pareja</span></span>
         </a>
         <div class="session-controls">
+          <button id="theme-toggle" class="button button-light theme-toggle" type="button" aria-pressed="false">Tema rosa</button>
           <span id="session-email" class="topbar-note" hidden></span>
           <button id="logout-button" class="button button-light" type="button" hidden>Cerrar sesión</button>
           <span id="offline-note" class="topbar-note"><span class="status-dot"></span> Billetera compartida y privada</span>
@@ -27,6 +28,10 @@
         <p class="eyebrow">CONFIGURACIÓN PENDIENTE</p>
         <h1 id="config-title">Conecten su proyecto</h1>
         <p class="panel-intro">La app necesita la URL y la clave publicable de Supabase. Completen <code>supabase-config.js</code>, ejecuten <code>supabase/schema.sql</code> y sirvan esta carpeta por HTTP para habilitar el acceso compartido.</p>
+        <div class="demo-entry">
+          <p>¿Solo quieren conocer la app? Prueben la demo local; no requiere correo ni conexión con Supabase.</p>
+          <button class="button button-dark button-full" type="button" data-start-demo>Probar demo local</button>
+        </div>
       </section>
       <section id="auth-view" class="panel access-panel auth-panel" aria-labelledby="auth-title" hidden>
         <img class="auth-logo" src="img/logo.jpg" alt="Dúo, finanzas en pareja">
@@ -41,6 +46,10 @@
           <button class="button button-primary button-full" type="submit">Enviar enlace de acceso <span aria-hidden="true">→</span></button>
         </form>
         <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
+        <div class="demo-entry">
+          <p>También pueden explorar la billetera sin enviar un correo. La demo guarda los cambios solo en este navegador.</p>
+          <button class="button button-dark button-full" type="button" data-start-demo>Probar demo local</button>
+        </div>
         <img class="auth-couple" src="img/pareja.jpg" alt="Pareja conversando y organizando sus finanzas juntos">
       </section>
 
@@ -62,6 +71,9 @@
       </section>
 
       <main id="dashboard" hidden>
+        <div id="demo-notice" class="demo-notice" role="status" hidden>
+          Están en la demo local. Los cambios se guardan solo en este navegador y no se comparten con otra persona.
+        </div>
         <section class="welcome">
           <div>
             <p class="eyebrow">FINANZAS COMPARTIDAS</p>
@@ -278,8 +290,8 @@
             </section>
             <div class="tip-card">
               <span class="tip-sparkle" aria-hidden="true">✳</span>
-              <p class="eyebrow">UN TIP PARA USTEDES</p>
-              <p>Los pequeños aportes constantes también construyen grandes planes.</p>
+              <p id="tip-category" class="eyebrow">UN TIP PARA USTEDES</p>
+              <p id="tip-quote" aria-live="polite">Los pequeños aportes constantes también construyen grandes planes.</p>
             </div>
           </aside>
         </section>

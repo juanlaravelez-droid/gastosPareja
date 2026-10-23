@@ -10,8 +10,63 @@ const dateFormatter = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+const DEMO_STORAGE_KEY = "billetera-demo-state-v1";
+const DEMO_ACTIVE_KEY = "billetera-demo-active-v1";
+const LAST_TIP_KEY = "billetera-last-tip-index-v1";
+const THEME_STORAGE_KEY = "billetera-theme-v1";
+const TIPS = [
+  {
+    category: "METAS Y FUTURO COMPARTIDO",
+    quote: "Las mejores vacaciones no son las más caras, sino las que se disfrutan con la tranquilidad de que ya están pagas.",
+  },
+  {
+    category: "METAS Y FUTURO COMPARTIDO",
+    quote: "Ahorrar juntos hoy es el boleto para la tranquilidad y las aventuras de mañana.",
+  },
+  {
+    category: "METAS Y FUTURO COMPARTIDO",
+    quote: "No estamos guardando dinero; estamos financiando recuerdos que durarán toda la vida.",
+  },
+  {
+    category: "METAS Y FUTURO COMPARTIDO",
+    quote: "El amor sueña el destino, pero la disciplina financiera pavimenta la carretera para llegar a él.",
+  },
+  {
+    category: "TRABAJO EN EQUIPO Y SINCRONÍA",
+    quote: "Una pareja que habla de finanzas sin tabúes es un equipo imparable.",
+  },
+  {
+    category: "TRABAJO EN EQUIPO Y SINCRONÍA",
+    quote: "El éxito financiero en pareja no se mide en números individuales, sino en las metas que logran tachar juntos.",
+  },
+  {
+    category: "TRABAJO EN EQUIPO Y SINCRONÍA",
+    quote: "Dos visiones alineadas convierten cualquier meta económica en un logro inevitable.",
+  },
+  {
+    category: "TRABAJO EN EQUIPO Y SINCRONÍA",
+    quote: "Cuando la meta es compartida, el esfuerzo deja de ser una carga y se convierte en una victoria diaria de ambos.",
+  },
+  {
+    category: "HÁBITOS Y MENTALIDAD",
+    quote: "Decirle 'no' a un gasto impulsivo hoy es decirle un rotundo 'sí' a su proyecto de vida.",
+  },
+  {
+    category: "HÁBITOS Y MENTALIDAD",
+    quote: "La estabilidad económica no llega por suerte; se construye con una conversación sincera y una decisión a la vez.",
+  },
+  {
+    category: "HÁBITOS Y MENTALIDAD",
+    quote: "No se trata de privarse de la vida, sino de aprender a disfrutar de lo importante sin hipotecar la paz mental.",
+  },
+  {
+    category: "HÁBITOS Y MENTALIDAD",
+    quote: "El mejor regalo que pueden darse como pareja es la libertad financiera.",
+  },
+];
 
 let supabase;
+let demoMode = false;
 let state = {
   user: null,
   wallet: null,
@@ -23,6 +78,35 @@ let state = {
 };
 let notificationTimer;
 let workspaceRequest = 0;
+
+function setTheme(theme, persist = false) {
+  const selectedTheme = theme === "rosa" ? "rosa" : "claro";
+  document.documentElement.dataset.theme = selectedTheme;
+  const button = document.querySelector("#theme-toggle");
+  const isRose = selectedTheme === "rosa";
+  button.textContent = isRose ? "Tema claro" : "Tema rosa";
+  button.setAttribute("aria-pressed", String(isRose));
+  button.setAttribute("aria-label", `Cambiar al tema ${isRose ? "claro" : "pastel rosa"}`);
+
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, selectedTheme);
+    } catch (error) {
+      console.error("No se pudo guardar la preferencia de tema.", error);
+      notify("No se pudo guardar el tema; se conservará hasta cerrar esta página.", true);
+    }
+  }
+}
+
+function initializeTheme() {
+  let savedTheme = "claro";
+  try {
+    savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "claro";
+  } catch (error) {
+    console.error("No se pudo leer la preferencia de tema.", error);
+  }
+  setTheme(savedTheme);
+}
 
 function showView(viewId) {
   ["config-view", "auth-view", "setup-view", "dashboard"].forEach((id) => {
@@ -68,6 +152,13 @@ function getErrorMessage(error) {
   return error?.message || "Ocurrió un error inesperado. Inténtalo de nuevo.";
 }
 
+function getLoginErrorMessage(error) {
+  if (error?.status === 429 || /rate limit/i.test(error?.message || "")) {
+    return "Supabase limitó temporalmente el envío del correo. Espera al menos un minuto antes de volver a intentarlo. Si persiste, configura un proveedor SMTP propio y revisa Authentication → Rate Limits en Supabase.";
+  }
+  return getErrorMessage(error);
+}
+
 async function getEdgeFunctionErrorMessage(error) {
   if (error?.name === "FunctionsFetchError") {
     return "No se pudo conectar con invite-member. Comprueba que la función esté desplegada en el proyecto Supabase configurado y que permita solicitudes desde este sitio.";
@@ -91,13 +182,177 @@ function calcularSaldo() {
   return totalOf(state.incomes) - totalOf(state.expenses) - totalOf(state.goals, "current_amount");
 }
 
+function showRandomTip() {
+  let previousIndex = -1;
+  try {
+    const savedIndex = localStorage.getItem(LAST_TIP_KEY);
+    if (savedIndex !== null) previousIndex = Number(savedIndex);
+  } catch (error) {
+    console.error("No se pudo leer el último tip mostrado.", error);
+  }
+
+  let index = Math.floor(Math.random() * TIPS.length);
+  if (TIPS.length > 1 && index === previousIndex) {
+    index = (index + 1 + Math.floor(Math.random() * (TIPS.length - 1))) % TIPS.length;
+  }
+
+  document.querySelector("#tip-category").textContent = TIPS[index].category;
+  document.querySelector("#tip-quote").textContent = `“${TIPS[index].quote}”`;
+  try {
+    localStorage.setItem(LAST_TIP_KEY, String(index));
+  } catch (error) {
+    console.error("No se pudo guardar el último tip mostrado.", error);
+  }
+}
+
+function createDemoState() {
+  const now = Date.now();
+  const firstMemberId = "demo-member-1";
+  const secondMemberId = "demo-member-2";
+  const dateDaysAgo = (daysAgo) => new Date(now - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+
+  return {
+    user: { id: firstMemberId, email: "Demo local" },
+    wallet: { id: "demo-wallet", nombre_miembro1: "Juan", nombre_miembro2: "Isa" },
+    memberIndex: 1,
+    members: [
+      { user_id: firstMemberId, member_index: 1 },
+      { user_id: secondMemberId, member_index: 2 },
+    ],
+    incomes: [
+      { id: "demo-income-1", author_id: firstMemberId, amount: 2200000, created_at: dateDaysAgo(6) },
+      { id: "demo-income-2", author_id: secondMemberId, amount: 1800000, created_at: dateDaysAgo(3) },
+    ],
+    expenses: [
+      { id: "demo-expense-1", author_id: secondMemberId, description: "Mercado", amount: 245000, created_at: dateDaysAgo(2) },
+    ],
+    goals: [
+      { id: "demo-goal-1", title: "Viaje juntos", target_amount: 1500000, current_amount: 300000, created_at: dateDaysAgo(5) },
+    ],
+  };
+}
+
+function saveDemoState() {
+  try {
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({
+      wallet: state.wallet,
+      members: state.members,
+      incomes: state.incomes,
+      expenses: state.expenses,
+      goals: state.goals,
+    }));
+    return true;
+  } catch (error) {
+    console.error("No se pudo guardar la demo local.", error);
+    notify("No se pudieron guardar los cambios de la demo en este navegador.", true);
+    return false;
+  }
+}
+
+function commitDemoChange(update, message) {
+  const previous = {
+    wallet: { ...state.wallet },
+    incomes: state.incomes.map((income) => ({ ...income })),
+    expenses: state.expenses.map((expense) => ({ ...expense })),
+    goals: state.goals.map((goal) => ({ ...goal })),
+  };
+  update();
+  if (!saveDemoState()) {
+    state = { ...state, ...previous };
+    renderApp();
+    return false;
+  }
+  renderApp();
+  notify(message);
+  return true;
+}
+
+function readDemoState() {
+  const saved = localStorage.getItem(DEMO_STORAGE_KEY);
+  if (!saved) return createDemoState();
+
+  const data = JSON.parse(saved);
+  if (
+    !data?.wallet ||
+    typeof data.wallet.nombre_miembro1 !== "string" ||
+    typeof data.wallet.nombre_miembro2 !== "string" ||
+    !Array.isArray(data.members) ||
+    !Array.isArray(data.incomes) ||
+    !Array.isArray(data.expenses) ||
+    !Array.isArray(data.goals)
+  ) {
+    throw new Error("Los datos guardados de la demo están incompletos. Borra los datos locales del sitio para iniciar una demo nueva.");
+  }
+
+  return {
+    ...data,
+    user: { id: "demo-member-1", email: "Demo local" },
+    memberIndex: 1,
+  };
+}
+
+function setDemoHeader(enabled) {
+  const sessionLabel = document.querySelector("#session-email");
+  const logoutButton = document.querySelector("#logout-button");
+  const offlineNote = document.querySelector("#offline-note");
+  sessionLabel.textContent = enabled ? "Demo local" : state.user?.email || "";
+  sessionLabel.hidden = !enabled && !state.user?.email;
+  logoutButton.textContent = enabled ? "Salir de demo" : "Cerrar sesión";
+  logoutButton.hidden = false;
+  offlineNote.textContent = enabled
+    ? "Solo guardado en este navegador"
+    : "Billetera compartida y privada";
+  offlineNote.hidden = enabled;
+  document.querySelector("#demo-notice").hidden = !enabled;
+}
+
+function startDemo() {
+  try {
+    state = readDemoState();
+    demoMode = true;
+    if (!saveDemoState()) {
+      demoMode = false;
+      return;
+    }
+    localStorage.setItem(DEMO_ACTIVE_KEY, "true");
+    setDemoHeader(true);
+    renderApp();
+    showRandomTip();
+    showView("dashboard");
+  } catch (error) {
+    console.error("No se pudo iniciar la demo local.", error);
+    showView("auth-view");
+    showFormMessage("#auth-message", getErrorMessage(error), true);
+  }
+}
+
+function restoreDemoSession() {
+  try {
+    if (localStorage.getItem(DEMO_ACTIVE_KEY) !== "true") return false;
+    state = readDemoState();
+    demoMode = true;
+    setDemoHeader(true);
+    renderApp();
+    showRandomTip();
+    showView("dashboard");
+  } catch (error) {
+    console.error("No se pudo restaurar la demo local.", error);
+    showView("auth-view");
+    showFormMessage("#auth-message", getErrorMessage(error), true);
+  }
+  return true;
+}
+
 async function loadWorkspace(user) {
   const requestId = ++workspaceRequest;
+  demoMode = false;
   state.user = user;
   document.querySelector("#session-email").textContent = user.email;
   document.querySelector("#session-email").hidden = false;
   document.querySelector("#logout-button").hidden = false;
+  document.querySelector("#logout-button").textContent = "Cerrar sesión";
   document.querySelector("#offline-note").hidden = true;
+  document.querySelector("#demo-notice").hidden = true;
 
   try {
     let membershipResult = await supabase
@@ -154,6 +409,7 @@ async function loadWorkspace(user) {
       goals: goalsResult.data,
     };
     renderApp();
+    showRandomTip();
     showView("dashboard");
     return true;
   } catch (error) {
@@ -204,7 +460,7 @@ function renderApp() {
   document.querySelector("#goals-empty").hidden = state.goals.length > 0;
   document.querySelector("#income-empty").hidden = state.incomes.length > 0;
   document.querySelector("#expense-empty").hidden = state.expenses.length > 0;
-  document.querySelector("#invite-panel").hidden = state.members.length >= 2;
+  document.querySelector("#invite-panel").hidden = demoMode || state.members.length >= 2;
 }
 
 function calcularProgresoMeta(goal) {
@@ -304,7 +560,7 @@ async function handleLogin(event) {
     showFormMessage("#auth-message", "Revisa tu correo y abre el enlace para entrar.");
   } catch (error) {
     console.error("No se pudo enviar el enlace de acceso.", error);
-    showFormMessage("#auth-message", getErrorMessage(error), true);
+    showFormMessage("#auth-message", getLoginErrorMessage(error), true);
   } finally {
     button.disabled = false;
   }
@@ -344,6 +600,14 @@ async function handleSaveNames(event) {
     return;
   }
 
+  if (demoMode) {
+    commitDemoChange(() => {
+      state.wallet.nombre_miembro1 = miembro1;
+      state.wallet.nombre_miembro2 = miembro2;
+    }, "Nombres actualizados en esta demo.");
+    return;
+  }
+
   const { error } = await supabase.rpc("update_wallet_names", {
     p_wallet_id: state.wallet.id,
     p_nombre_miembro1: miembro1,
@@ -370,6 +634,19 @@ async function handleNewIncome(event) {
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     notify("El monto del ingreso debe ser mayor que cero.", true);
+    return;
+  }
+
+  if (demoMode) {
+    commitDemoChange(() => {
+      state.incomes.unshift({
+        id: crypto.randomUUID(),
+        author_id: authorId,
+        amount,
+        created_at: new Date().toISOString(),
+      });
+      form.reset();
+    }, "Ingreso agregado a la demo.");
     return;
   }
 
@@ -402,6 +679,24 @@ async function handleNewExpense(event) {
     return;
   }
 
+  if (demoMode) {
+    if (amount > calcularSaldo()) {
+      notify("Saldo disponible insuficiente para registrar este gasto.", true);
+      return;
+    }
+    commitDemoChange(() => {
+      state.expenses.unshift({
+        id: crypto.randomUUID(),
+        author_id: state.user.id,
+        description,
+        amount,
+        created_at: new Date().toISOString(),
+      });
+      form.reset();
+    }, "Gasto registrado en la demo.");
+    return;
+  }
+
   const { error } = await supabase.rpc("register_expense", {
     p_wallet_id: state.wallet.id,
     p_description: description,
@@ -431,6 +726,20 @@ async function handleNewGoal(event) {
     return;
   }
 
+  if (demoMode) {
+    commitDemoChange(() => {
+      state.goals.unshift({
+        id: crypto.randomUUID(),
+        title,
+        target_amount: targetAmount,
+        current_amount: 0,
+        created_at: new Date().toISOString(),
+      });
+      form.reset();
+    }, "Meta creada en la demo.");
+    return;
+  }
+
   const { error } = await supabase.from("goals").insert({
     wallet_id: state.wallet.id,
     title,
@@ -455,6 +764,26 @@ async function handleContribute(event) {
     return;
   }
 
+  if (demoMode) {
+    const goal = state.goals.find((item) => item.id === form.dataset.metaId);
+    if (!goal) {
+      notify("No se encontró la meta seleccionada.", true);
+      return;
+    }
+    if (amount > calcularSaldo()) {
+      notify("Saldo disponible insuficiente para realizar este aporte.", true);
+      return;
+    }
+    if (goal.current_amount + amount > goal.target_amount) {
+      notify("El aporte supera el monto que falta para completar esta meta.", true);
+      return;
+    }
+    commitDemoChange(() => {
+      goal.current_amount += amount;
+    }, "Aporte asignado a la meta en la demo.");
+    return;
+  }
+
   const { error } = await supabase.rpc("contribute_to_goal", {
     p_wallet_id: state.wallet.id,
     p_goal_id: form.dataset.metaId,
@@ -471,6 +800,12 @@ async function handleContribute(event) {
 async function handleDeleteIncome(event) {
   const button = event.target.closest('[data-action="eliminar-ingreso"]');
   if (!button) return;
+  if (demoMode) {
+    commitDemoChange(() => {
+      state.incomes = state.incomes.filter((income) => income.id !== button.dataset.incomeId);
+    }, "Ingreso eliminado de la demo.");
+    return;
+  }
   const { error } = await supabase.rpc("delete_income", {
     p_wallet_id: state.wallet.id,
     p_income_id: button.dataset.incomeId,
@@ -485,6 +820,10 @@ async function handleDeleteIncome(event) {
 
 async function handleInvite(event) {
   event.preventDefault();
+  if (demoMode) {
+    showFormMessage("#invite-message", "Las invitaciones solo están disponibles en una billetera conectada a Supabase.", true);
+    return;
+  }
   const form = event.currentTarget;
   const email = String(new FormData(form).get("email") || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -519,6 +858,36 @@ async function refreshAndNotify(message) {
 }
 
 async function handleLogout() {
+  if (demoMode) {
+    try {
+      localStorage.removeItem(DEMO_ACTIVE_KEY);
+    } catch (error) {
+      console.error("No se pudo cerrar la demo local.", error);
+      notify("No se pudo cerrar la demo local.", true);
+      return;
+    }
+    demoMode = false;
+    state = { user: null, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], goals: [] };
+    document.querySelector("#session-email").hidden = true;
+    document.querySelector("#logout-button").hidden = true;
+    document.querySelector("#offline-note").hidden = false;
+    document.querySelector("#demo-notice").hidden = true;
+    if (supabase) {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("No se pudo comprobar la sesión.", error);
+        showView("auth-view");
+        showFormMessage("#auth-message", getErrorMessage(error), true);
+      } else if (data.session) {
+        await loadWorkspace(data.session.user);
+      } else {
+        showView("auth-view");
+      }
+    } else {
+      showView("config-view");
+    }
+    return;
+  }
   const { error } = await supabase.auth.signOut();
   if (error) {
     console.error("No se pudo cerrar la sesión.", error);
@@ -527,6 +896,10 @@ async function handleLogout() {
 }
 
 function initializeEventHandlers() {
+  document.querySelector("#theme-toggle").addEventListener("click", () => {
+    const currentTheme = document.documentElement.dataset.theme;
+    setTheme(currentTheme === "rosa" ? "claro" : "rosa", true);
+  });
   document.querySelector("#form-login").addEventListener("submit", handleLogin);
   document.querySelector("#form-wallet").addEventListener("submit", handleCreateWallet);
   document.querySelector("#form-nombres").addEventListener("submit", handleSaveNames);
@@ -537,22 +910,50 @@ function initializeEventHandlers() {
   document.querySelector("#goals-list").addEventListener("submit", handleContribute);
   document.querySelector("#income-list").addEventListener("click", handleDeleteIncome);
   document.querySelector("#logout-button").addEventListener("click", handleLogout);
+  document.querySelectorAll("[data-start-demo]").forEach((button) => {
+    button.addEventListener("click", startDemo);
+  });
+}
+
+function listenForAuthChanges() {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "INITIAL_SESSION" || demoMode) return;
+    if (!session) {
+      workspaceRequest += 1;
+      document.querySelector("#session-email").hidden = true;
+      document.querySelector("#logout-button").hidden = true;
+      document.querySelector("#offline-note").hidden = false;
+      showView("auth-view");
+      return;
+    }
+    void loadWorkspace(session.user);
+  });
 }
 
 async function initializeApp() {
+  initializeTheme();
   initializeEventHandlers();
 
-  if (
-    !SUPABASE_URL ||
-    !SUPABASE_ANON_KEY ||
-    SUPABASE_URL.includes("YOUR_PROJECT") ||
-    SUPABASE_ANON_KEY.includes("YOUR_PUBLIC")
-  ) {
+  const hasSupabaseConfiguration = Boolean(
+    SUPABASE_URL &&
+    SUPABASE_ANON_KEY &&
+    !SUPABASE_URL.includes("YOUR_PROJECT") &&
+    !SUPABASE_ANON_KEY.includes("YOUR_PUBLIC")
+  );
+  if (hasSupabaseConfiguration) {
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+
+  if (restoreDemoSession()) {
+    if (supabase) listenForAuthChanges();
+    return;
+  }
+
+  if (!hasSupabaseConfiguration) {
     showView("config-view");
     return;
   }
 
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     console.error("No se pudo comprobar la sesión.", error);
@@ -564,18 +965,7 @@ async function initializeApp() {
     showView("auth-view");
   }
 
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === "INITIAL_SESSION") return;
-    if (!session) {
-      workspaceRequest += 1;
-      document.querySelector("#session-email").hidden = true;
-      document.querySelector("#logout-button").hidden = true;
-      document.querySelector("#offline-note").hidden = false;
-      showView("auth-view");
-      return;
-    }
-    void loadWorkspace(session.user);
-  });
+  listenForAuthChanges();
 }
 
 initializeApp();

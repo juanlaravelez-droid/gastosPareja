@@ -23,7 +23,7 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
 
 En **Authentication → URL Configuration**, agrega a **Redirect URLs** la URL donde se servirá la app, incluyendo el origen local `http://localhost:8000/**` durante desarrollo. Configura también **Site URL** con la URL de producción.
 
-En **Authentication → SMTP Settings**, configura un proveedor SMTP real para que Supabase pueda enviar enlaces mágicos e invitaciones. La entrega de correo del servicio por defecto puede tener límites y no se recomienda para producción.
+En **Authentication → SMTP Settings**, configura un proveedor SMTP real para que Supabase pueda enviar enlaces mágicos e invitaciones. El proveedor de correo integrado está limitado a 2 correos por hora para todo el proyecto; además, por defecto hay una espera de 60 segundos entre solicitudes de enlace para el mismo usuario. Con SMTP propio, puedes ajustar los límites disponibles en **Authentication → Rate Limits**. Los cambios se hacen en el panel del proyecto Supabase, no en el código de la app. Si aparece `email rate limit exceeded`, espera al menos un minuto y vuelve a probar; para quitar el límite bajo del proveedor integrado, configura SMTP propio y ajusta el límite de envío en esa sección.
 
 ## 3. Desplegar las Edge Functions
 
@@ -52,6 +52,10 @@ py -m http.server 8000
 ```
 
 Abre `http://localhost:8000`. La app seguirá mostrando la configuración pendiente mientras `supabase-config.example.js`, el esquema o las funciones no estén listos.
+
+## Demo local
+
+En la pantalla de acceso o de configuración pendiente, selecciona **Probar demo local** para explorar la billetera sin enviar correos. La demo usa datos de ejemplo y guarda los cambios en el almacenamiento local de ese navegador; no crea una cuenta ni sincroniza datos con Supabase o con otra persona. Usa **Salir de demo** para volver al acceso normal. Los datos de ejemplo se conservan en ese navegador para la siguiente sesión de demo.
 
 ## Modelo de saldo
 
