@@ -39,6 +39,7 @@ create table public.goals (
   wallet_id uuid not null references public.wallets(id) on delete cascade,
   title text not null check (char_length(btrim(title)) >= 3),
   target_amount numeric(14, 2) not null check (target_amount > 0),
+  target_date date,
   current_amount numeric(14, 2) not null default 0 check (
     current_amount >= 0 and current_amount <= target_amount
   ),

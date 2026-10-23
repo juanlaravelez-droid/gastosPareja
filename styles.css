@@ -789,6 +789,17 @@ h2 {
   font-size: 10px;
 }
 
+.goal-deadline {
+  margin: 12px 0 -7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.goal-deadline.overdue {
+  color: var(--red);
+  font-weight: 700;
+}
+
 .goal-moneyline strong {
   color: #3c4940;
   font-size: 11px;

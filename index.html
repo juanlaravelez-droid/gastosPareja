@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#f5f6f2">
     <meta name="description" content="Una billetera compartida para organizar ingresos, gastos y metas de ahorro en pareja.">
     <title>Billetera en pareja</title>
-    <link rel="stylesheet" href="styles.css?v=2">
-    <script type="module" src="app.js"></script>
+    <link rel="stylesheet" href="styles.css?v=3">
+    <script type="module" src="app.js?v=2"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -180,6 +180,10 @@
                     <span>$</span>
                     <input id="meta-objetivo" name="montoObjetivo" type="number" min="0.01" step="any" inputmode="decimal" placeholder="3.000.000" required>
                   </div>
+                </label>
+                <label>
+                  <span>¿Para cuándo la quieren lograr? (opcional)</span>
+                  <input id="meta-fecha" name="fechaObjetivo" type="date">
                 </label>
                 <button class="button button-dark button-full" type="submit">Crear meta <span aria-hidden="true">→</span></button>
               </form>

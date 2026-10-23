@@ -182,6 +182,12 @@ function calcularSaldo() {
   return totalOf(state.incomes) - totalOf(state.expenses) - totalOf(state.goals, "current_amount");
 }
 
+function isValidDateInput(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 function showRandomTip() {
   let previousIndex = -1;
   try {
@@ -227,7 +233,14 @@ function createDemoState() {
       { id: "demo-expense-1", author_id: secondMemberId, description: "Mercado", amount: 245000, created_at: dateDaysAgo(2) },
     ],
     goals: [
-      { id: "demo-goal-1", title: "Viaje juntos", target_amount: 1500000, current_amount: 300000, created_at: dateDaysAgo(5) },
+      {
+        id: "demo-goal-1",
+        title: "Viaje juntos",
+        target_amount: 1500000,
+        target_date: new Date(now + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        current_amount: 300000,
+        created_at: dateDaysAgo(5),
+      },
     ],
   };
 }
@@ -390,7 +403,7 @@ async function loadWorkspace(user) {
       supabase.from("wallet_members").select("user_id, member_index").eq("wallet_id", walletId),
       supabase.from("incomes").select("id, author_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       supabase.from("expenses").select("id, author_id, description, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
-      supabase.from("goals").select("id, title, target_amount, current_amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: true }),
+      supabase.from("goals").select("id, title, target_amount, target_date, current_amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: true }),
     ]);
 
     for (const result of [walletResult, membersResult, incomeResult, expenseResult, goalsResult]) {
@@ -469,11 +482,24 @@ function calcularProgresoMeta(goal) {
     : Math.min(100, Math.round((goal.current_amount / goal.target_amount) * 100));
 }
 
+function getTodayDateInput() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function renderGoals() {
   return state.goals.map((goal) => {
     const progress = calcularProgresoMeta(goal);
     const complete = Number(goal.current_amount) >= Number(goal.target_amount);
     const remaining = Math.max(0, Number(goal.target_amount) - Number(goal.current_amount));
+    const targetDate = goal.target_date
+      ? new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeZone: "UTC" })
+        .format(new Date(`${goal.target_date}T00:00:00Z`))
+      : null;
+    const isOverdue = !complete && goal.target_date && goal.target_date < getTodayDateInput();
 
     return `
       <article class="goal-card">
@@ -484,6 +510,7 @@ function renderGoals() {
           </div>
           ${complete ? '<span class="goal-complete">Completada</span>' : ""}
         </div>
+        ${targetDate ? `<p class="goal-deadline${isOverdue ? " overdue" : ""}">${isOverdue ? "Fecha vencida" : "Fecha objetivo"} · ${escapeHtml(targetDate)}</p>` : ""}
         <div class="goal-moneyline">
           <span><strong>${formatCurrency(Number(goal.current_amount))}</strong> ahorrados</span>
           <span>de ${formatCurrency(Number(goal.target_amount))}</span>
@@ -717,12 +744,17 @@ async function handleNewGoal(event) {
   const data = new FormData(form);
   const title = String(data.get("titulo") || "").trim();
   const targetAmount = Number(data.get("montoObjetivo"));
+  const targetDate = String(data.get("fechaObjetivo") || "").trim() || null;
   if (title.length < 3) {
     notify("El nombre de la meta debe tener al menos 3 caracteres.", true);
     return;
   }
   if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
     notify("El monto objetivo debe ser mayor que cero.", true);
+    return;
+  }
+  if (targetDate && !isValidDateInput(targetDate)) {
+    notify("Selecciona una fecha objetivo válida.", true);
     return;
   }
 
@@ -732,6 +764,7 @@ async function handleNewGoal(event) {
         id: crypto.randomUUID(),
         title,
         target_amount: targetAmount,
+        target_date: targetDate,
         current_amount: 0,
         created_at: new Date().toISOString(),
       });
@@ -744,6 +777,7 @@ async function handleNewGoal(event) {
     wallet_id: state.wallet.id,
     title,
     target_amount: targetAmount,
+    target_date: targetDate,
   });
   if (error) {
     console.error("No se pudo crear la meta.", error);
