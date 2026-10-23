@@ -184,14 +184,17 @@ function renderApp() {
   document.querySelector("#nombre-miembro1-edicion").value = state.wallet.nombre_miembro1;
   document.querySelector("#nombre-miembro2-edicion").value = state.wallet.nombre_miembro2;
   const incomeAuthor = document.querySelector("#ingreso-autor");
-  const authorName = state.memberIndex === 1
-    ? state.wallet.nombre_miembro1
-    : state.wallet.nombre_miembro2;
-  incomeAuthor.innerHTML = `
-    <option value="${escapeHtml(state.user.id)}">${escapeHtml(authorName)}</option>
-  `;
+  incomeAuthor.innerHTML = [...state.members]
+    .sort((first, second) => first.member_index - second.member_index)
+    .map((member) => {
+      const memberName = member.member_index === 1
+        ? state.wallet.nombre_miembro1
+        : state.wallet.nombre_miembro2;
+      return `<option value="${escapeHtml(member.user_id)}">${escapeHtml(memberName)}</option>`;
+    })
+    .join("");
   incomeAuthor.value = state.user.id;
-  incomeAuthor.disabled = true;
+  incomeAuthor.disabled = state.members.length < 2;
   document.querySelector("#goal-count").textContent = `${state.goals.length} ${state.goals.length === 1 ? "meta" : "metas"}`;
   document.querySelector("#income-count").textContent = `${state.incomes.length} ${state.incomes.length === 1 ? "ingreso" : "ingresos"}`;
   document.querySelector("#expense-count").textContent = `${state.expenses.length} ${state.expenses.length === 1 ? "gasto" : "gastos"}`;
@@ -357,7 +360,14 @@ async function handleSaveNames(event) {
 async function handleNewIncome(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const amount = Number(new FormData(form).get("monto"));
+  const formData = new FormData(form);
+  const authorId = String(formData.get("autor") || "");
+  const amount = Number(formData.get("monto"));
+  const isMember = state.members.some((member) => member.user_id === authorId);
+  if (!isMember) {
+    notify("Selecciona una de las dos personas de la billetera.", true);
+    return;
+  }
   if (!Number.isFinite(amount) || amount <= 0) {
     notify("El monto del ingreso debe ser mayor que cero.", true);
     return;
@@ -365,7 +375,7 @@ async function handleNewIncome(event) {
 
   const { error } = await supabase.from("incomes").insert({
     wallet_id: state.wallet.id,
-    author_id: state.user.id,
+    author_id: authorId,
     amount,
   });
   if (error) {

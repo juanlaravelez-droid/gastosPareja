@@ -20,6 +20,7 @@ create table public.incomes (
   id uuid primary key default gen_random_uuid(),
   wallet_id uuid not null references public.wallets(id) on delete cascade,
   author_id uuid not null references auth.users(id),
+  created_by uuid not null default auth.uid() references auth.users(id),
   amount numeric(14, 2) not null check (amount > 0),
   created_at timestamptz not null default now()
 );
@@ -411,9 +412,18 @@ create policy "Members can read wallet membership"
 create policy "Members can read incomes"
   on public.incomes for select to authenticated
   using (public.is_wallet_member(wallet_id));
-create policy "Members can add incomes as themselves"
+create policy "Members can add incomes for wallet members"
   on public.incomes for insert to authenticated
-  with check (public.is_wallet_member(wallet_id) and author_id = (select auth.uid()));
+  with check (
+    public.is_wallet_member(wallet_id)
+    and created_by = (select auth.uid())
+    and exists (
+      select 1
+      from public.wallet_members as author_member
+      where author_member.wallet_id = incomes.wallet_id
+        and author_member.user_id = incomes.author_id
+    )
+  );
 
 create policy "Members can read expenses"
   on public.expenses for select to authenticated
