@@ -1,6 +1,6 @@
 # Configurar la billetera compartida
 
-La app usa Supabase para las cuentas, los datos compartidos y las invitaciones. Para iniciar, se necesita una cuenta y un proyecto Supabase. El archivo `supabase-config.js` está ignorado por Git y solo debe contener la URL del proyecto y la clave publicable (anon); nunca pongas ahí la clave `service_role`.
+La app usa Supabase para las cuentas, los datos compartidos y las invitaciones. Para iniciar, se necesita una cuenta y un proyecto Supabase. La configuración del cliente se lee desde `supabase-config.example.js`; la URL y la clave publicable (anon) no son secretos y pueden estar en el repositorio. Nunca pongas la clave `service_role` en ningún archivo servido al navegador.
 
 Los registros creados por la versión anterior en `localStorage` no se importan automáticamente ni se borran: quedan en el navegador anterior, pero la nueva billetera Supabase inicia vacía. Registra de nuevo los datos que necesites compartir.
 
@@ -9,7 +9,7 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
 1. Crea un proyecto en [Supabase](https://supabase.com/) y espera a que la base de datos termine de inicializarse.
 2. En **SQL Editor**, ejecuta el contenido de `supabase/schema.sql`.
 3. En **Project Settings → API**, copia la URL del proyecto y la clave publicable (o la clave `anon` heredada).
-4. Pega esos valores en `supabase-config.js`:
+4. Pega esos valores en `supabase-config.example.js`:
 
    ```js
    export const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
@@ -48,7 +48,7 @@ No abras `index.html` directamente con `file://`: los módulos JavaScript y el i
 py -m http.server 8000
 ```
 
-Abre `http://localhost:8000`. La app seguirá mostrando la configuración pendiente mientras `supabase-config.js`, el esquema o las funciones no estén listos.
+Abre `http://localhost:8000`. La app seguirá mostrando la configuración pendiente mientras `supabase-config.example.js`, el esquema o las funciones no estén listos.
 
 ## Modelo de saldo
 
