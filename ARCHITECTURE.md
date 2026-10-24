@@ -32,4 +32,5 @@ servidor.
 
 Ejecuta `npm test` para correr las pruebas unitarias de dominio, validación,
 almacenamiento local y repositorio. No se requieren dependencias externas de
-pruebas.
+pruebas. GitHub Actions ejecuta la misma suite en cada push a `main` y en cada
+pull request dirigido a `main`.
