@@ -21,6 +21,7 @@ export function createDemoState(now = Date.now()) {
     expenses: [
       { id: "demo-expense-1", author_id: secondMemberId, description: "Mercado", amount: 245000, created_at: dateDaysAgo(2) },
     ],
+    settlements: [],
     goals: [
       {
         id: "demo-goal-1",
@@ -54,6 +55,7 @@ export function createDemoStorage(storage) {
 
     return {
       ...data,
+      settlements: Array.isArray(data.settlements) ? data.settlements : [],
       user: { id: "demo-member-1", email: "Demo local" },
       memberIndex: 1,
     };
@@ -67,6 +69,7 @@ export function createDemoStorage(storage) {
         members: state.members,
         incomes: state.incomes,
         expenses: state.expenses,
+        settlements: state.settlements || [],
         goals: state.goals,
       }));
     },

@@ -29,6 +29,7 @@ export function createSupabaseRepository(client) {
       client.from("wallet_members").select("user_id, member_index").eq("wallet_id", walletId),
       client.from("incomes").select("id, author_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       client.from("expenses").select("id, author_id, description, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
+      client.from("settlements").select("id, payer_id, receiver_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       client.from("goals").select("id, title, target_amount, target_date, current_amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: true }),
     ]);
 
@@ -36,13 +37,14 @@ export function createSupabaseRepository(client) {
       if (result.error) throw result.error;
     }
 
-    const [wallet, members, incomes, expenses, goals] = results.map((result) => result.data);
+    const [wallet, members, incomes, expenses, settlements, goals] = results.map((result) => result.data);
     return {
       wallet,
       memberIndex: membershipResult.data.member_index,
       members,
       incomes,
       expenses,
+      settlements,
       goals,
     };
   }
@@ -100,6 +102,16 @@ export function createSupabaseRepository(client) {
     deleteIncome: (walletId, incomeId) => client.rpc("delete_income", {
       p_wallet_id: walletId,
       p_income_id: incomeId,
+    }),
+    deleteExpense: (walletId, expenseId) => client.rpc("delete_expense", {
+      p_wallet_id: walletId,
+      p_expense_id: expenseId,
+    }),
+    registerSettlement: (walletId, payerId, receiverId, amount) => client.rpc("register_settlement", {
+      p_wallet_id: walletId,
+      p_payer_id: payerId,
+      p_receiver_id: receiverId,
+      p_amount: amount,
     }),
     inviteMember: (walletId, email) => client.functions.invoke("invite-member", {
       body: { wallet_id: walletId, email },

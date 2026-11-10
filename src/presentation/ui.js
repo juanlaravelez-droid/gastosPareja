@@ -1,5 +1,4 @@
 const LAST_TIP_KEY = "billetera-last-tip-index-v1";
-const THEME_STORAGE_KEY = "billetera-theme-v1";
 const TIPS = [
   {
     category: "METAS Y FUTURO COMPARTIDO",
@@ -68,39 +67,12 @@ export function createUi(storage) {
     }
   }
 
-  function setTheme(theme, persist = false) {
-    const selectedTheme = theme === "rosa" ? "rosa" : "claro";
-    document.documentElement.dataset.theme = selectedTheme;
-    const button = document.querySelector("#theme-toggle");
-    const isRose = selectedTheme === "rosa";
-    button.textContent = isRose ? "Tema claro" : "Tema rosa";
-    button.setAttribute("aria-pressed", String(isRose));
-    button.setAttribute("aria-label", `Cambiar al tema ${isRose ? "claro" : "pastel rosa"}`);
-
-    if (persist) {
-      try {
-        storage.setItem(THEME_STORAGE_KEY, selectedTheme);
-      } catch (error) {
-        console.error("No se pudo guardar la preferencia de tema.", error);
-        notify("No se pudo guardar el tema; se conservará hasta cerrar esta página.", true);
-      }
-    }
-  }
-
-  function initializeTheme() {
-    let savedTheme = "claro";
-    try {
-      savedTheme = storage.getItem(THEME_STORAGE_KEY) || "claro";
-    } catch (error) {
-      console.error("No se pudo leer la preferencia de tema.", error);
-    }
-    setTheme(savedTheme);
-  }
-
   function showView(viewId) {
     ["config-view", "auth-view", "setup-view", "dashboard"].forEach((id) => {
       document.querySelector(`#${id}`).hidden = id !== viewId;
     });
+    const dashboardActions = document.querySelector(".dashboard-user-actions");
+    if (dashboardActions) dashboardActions.hidden = viewId !== "dashboard";
   }
 
   function showFormMessage(selector, message, isError = false) {
@@ -132,5 +104,5 @@ export function createUi(storage) {
     }
   }
 
-  return { initializeTheme, notify, setTheme, showFormMessage, showRandomTip, showView };
+  return { notify, showFormMessage, showRandomTip, showView };
 }

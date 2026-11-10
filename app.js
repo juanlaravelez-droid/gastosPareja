@@ -6,19 +6,26 @@ import {
   validateGoalContribution,
   validateIncome,
 } from "./src/application/wallet-validation.js";
-import { calculateAvailableBalance } from "./src/domain/finance.js";
+import {
+  calculateAvailableBalance,
+  getDashboardSummary,
+} from "./src/application/wallet-service.js?v=1";
+import { addSettlement } from "./src/application/expense-service.js?v=1";
 import { createDemoStorage } from "./src/infrastructure/demo-storage.js";
-import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js";
-import { createRenderer } from "./src/presentation/render.js";
-import { createUi } from "./src/presentation/ui.js";
-
-const currencyFormatter = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 2,
-});
+import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js?v=1";
+import { addExpense, deleteExpense } from "./src/application/expense-service.js?v=1";
+import { createStorageRepository } from "./src/infrastructure/storage-repository.js?v=1";
+import { createRenderer } from "./src/presentation/render.js?v=2";
+import { createUi } from "./src/presentation/ui.js?v=4";
+import { ThemeToggle } from "./src/presentation/components/ThemeToggle.js?v=1";
+import { AppNavigation } from "./src/presentation/navigation.js";
+import { DashboardView } from "./src/presentation/views/DashboardView.js?v=2";
+import { formatCurrency } from "./src/presentation/formatCurrency.js";
 let supabaseRepository;
-const demoStorage = createDemoStorage(localStorage);
+let appNavigation;
+const storageRepository = createStorageRepository();
+const demoStorage = createDemoStorage(storageRepository);
+const expenseDeleteTimers = new WeakMap();
 let demoMode = false;
 let state = {
   user: null,
@@ -27,20 +34,52 @@ let state = {
   members: [],
   incomes: [],
   expenses: [],
+  settlements: [],
   goals: [],
 };
 let workspaceRequest = 0;
-const { initializeTheme, notify, setTheme, showFormMessage, showRandomTip, showView } =
-  createUi(localStorage);
+const { notify, showFormMessage, showRandomTip, showView } = createUi(storageRepository);
+const themeToggle = new ThemeToggle(storageRepository, (message) => notify(message, true));
+const dashboardView = new DashboardView({
+  storage: storageRepository,
+  formatCurrency,
+  onQuickExpense: () => appNavigation?.openExpenseModal("gasto"),
+  onSettle: openSettlementDialog,
+  onNotifications: (summary) => {
+    notify(summary?.settlementAmount
+      ? `Hay ${formatCurrency(summary.settlementAmount)} pendiente por saldar entre ustedes.`
+      : "No tienen saldos pendientes por liquidar.");
+  },
+  onError: (error, message) => {
+    console.error(message, error);
+    notify("No se pudo guardar la preferencia del dashboard.", true);
+  },
+});
 const { renderApp } = createRenderer({
   getState: () => state,
   getDemoMode: () => demoMode,
   formatCurrency,
   escapeHtml,
+  dashboardView,
 });
 
-function formatCurrency(amount) {
-  return currencyFormatter.format(amount);
+function openSettlementDialog(metrics) {
+  const dialog = document.querySelector("#dashboard-settlement-dialog");
+  const form = document.querySelector("#form-settlement");
+  if (
+    !dialog ||
+    !form ||
+    !metrics?.settlementAmount ||
+    metrics.settlementPayerId !== state.user.id
+  ) return;
+
+  form.elements.namedItem("payerId").value = metrics.settlementPayerId;
+  form.elements.namedItem("receiverId").value = metrics.settlementReceiverId;
+  form.elements.namedItem("amount").max = String(metrics.settlementAmount);
+  form.elements.namedItem("amount").value = metrics.settlementAmount.toFixed(2);
+  document.querySelector("#settlement-description").textContent =
+    `${metrics.settlementPayerName} debe a ${metrics.settlementReceiverName}.`;
+  dialog.showModal();
 }
 
 function escapeHtml(value) {
@@ -95,6 +134,7 @@ function commitDemoChange(update, message) {
     wallet: { ...state.wallet },
     incomes: state.incomes.map((income) => ({ ...income })),
     expenses: state.expenses.map((expense) => ({ ...expense })),
+    settlements: (state.settlements || []).map((settlement) => ({ ...settlement })),
     goals: state.goals.map((goal) => ({ ...goal })),
   };
   update();
@@ -177,7 +217,7 @@ async function loadWorkspace(user) {
     if (requestId !== workspaceRequest) return false;
 
     if (!workspace) {
-      state = { ...state, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], goals: [] };
+      state = { ...state, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], settlements: [], goals: [] };
       showView("setup-view");
       return false;
     }
@@ -285,7 +325,7 @@ async function handleNewIncome(event) {
   }
 
   if (demoMode) {
-    commitDemoChange(() => {
+    const saved = commitDemoChange(() => {
       state.incomes.unshift({
         id: crypto.randomUUID(),
         author_id: authorId,
@@ -294,6 +334,7 @@ async function handleNewIncome(event) {
       });
       form.reset();
     }, "Ingreso agregado a la demo.");
+    if (saved) appNavigation.closeExpenseModal();
     return;
   }
 
@@ -304,7 +345,7 @@ async function handleNewIncome(event) {
     return;
   }
   form.reset();
-  await refreshAndNotify("Ingreso agregado.");
+  if (await refreshAndNotify("Ingreso agregado.")) appNavigation.closeExpenseModal();
 }
 
 async function handleNewExpense(event) {
@@ -324,8 +365,8 @@ async function handleNewExpense(event) {
   }
 
   if (demoMode) {
-    commitDemoChange(() => {
-      state.expenses.unshift({
+    const saved = commitDemoChange(() => {
+      state.expenses = addExpense(state.expenses, {
         id: crypto.randomUUID(),
         author_id: state.user.id,
         description,
@@ -334,6 +375,7 @@ async function handleNewExpense(event) {
       });
       form.reset();
     }, "Gasto registrado en la demo.");
+    if (saved) appNavigation.closeExpenseModal();
     return;
   }
 
@@ -344,7 +386,70 @@ async function handleNewExpense(event) {
     return;
   }
   form.reset();
-  await refreshAndNotify("Gasto registrado y descontado del saldo.");
+  if (await refreshAndNotify("Gasto registrado y descontado del saldo.")) appNavigation.closeExpenseModal();
+}
+
+async function handleRegisterSettlement(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const payerId = String(data.get("payerId") || "");
+  const receiverId = String(data.get("receiverId") || "");
+  const amount = Number(data.get("amount"));
+  const summary = getDashboardSummary(state);
+  const amountInCents = amount * 100;
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    Math.abs(amountInCents - Math.round(amountInCents)) > Number.EPSILON * Math.max(1, amountInCents)
+  ) {
+    notify("Ingresa un monto válido con máximo dos decimales.", true);
+    return;
+  }
+  if (
+    payerId !== summary.settlementPayerId ||
+    receiverId !== summary.settlementReceiverId ||
+    payerId !== state.user.id ||
+    amount > summary.settlementAmount
+  ) {
+    notify("El saldo pendiente cambió. Actualiza la página antes de registrar la liquidación.", true);
+    return;
+  }
+
+  if (demoMode) {
+    const saved = commitDemoChange(() => {
+      state.settlements = addSettlement(state.settlements || [], {
+        id: crypto.randomUUID(),
+        payer_id: payerId,
+        receiver_id: receiverId,
+        amount,
+        created_at: new Date().toISOString(),
+      });
+    }, "Liquidación registrada en la demo.");
+    if (saved) document.querySelector("#dashboard-settlement-dialog").close();
+    return;
+  }
+
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    const { error } = await supabaseRepository.registerSettlement(
+      state.wallet.id,
+      payerId,
+      receiverId,
+      amount,
+    );
+    if (error) throw error;
+    if (await loadWorkspace(state.user)) {
+      document.querySelector("#dashboard-settlement-dialog").close();
+      notify("Liquidación registrada.");
+    }
+  } catch (error) {
+    console.error("No se pudo registrar la liquidación.", error);
+    notify(getErrorMessage(error), true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function handleNewGoal(event) {
@@ -520,6 +625,65 @@ async function handleDeleteIncome(event) {
   await refreshAndNotify("Ingreso eliminado.");
 }
 
+async function handleDeleteExpense(event) {
+  const button = event.target.closest('[data-action="eliminar-gasto"]');
+  if (!button) return;
+
+  const expense = state.expenses.find((item) => item.id === button.dataset.expenseId);
+  if (!expense) {
+    notify("No se encontró el gasto seleccionado.", true);
+    return;
+  }
+  const label = button.querySelector(".delete-confirm-label");
+  if (button.dataset.confirmState !== "warning") {
+    button.dataset.confirmState = "warning";
+    button.setAttribute("aria-label", `Toca de nuevo para eliminar el gasto ${expense.description}`);
+    button.title = "Toca de nuevo para confirmar";
+    if (label) label.textContent = "¿Eliminar?";
+    const timer = window.setTimeout(() => {
+      if (!button.isConnected) return;
+      delete button.dataset.confirmState;
+      button.setAttribute("aria-label", `Eliminar gasto ${expense.description}`);
+      button.title = "Eliminar gasto";
+      if (label) label.textContent = "Eliminar";
+      expenseDeleteTimers.delete(button);
+    }, 4000);
+    expenseDeleteTimers.set(button, timer);
+    return;
+  }
+
+  window.clearTimeout(expenseDeleteTimers.get(button));
+  expenseDeleteTimers.delete(button);
+  button.dataset.confirmState = "loading";
+  button.classList.add("state-loading");
+  button.disabled = true;
+  button.setAttribute("aria-label", `Eliminando gasto ${expense.description}`);
+  button.setAttribute("aria-busy", "true");
+  if (label) label.textContent = "Eliminando";
+
+  if (demoMode) {
+    commitDemoChange(() => {
+      state.expenses = deleteExpense(state.expenses, expense.id);
+    }, "Gasto eliminado de la demo; el monto volvió al saldo disponible.");
+    return;
+  }
+
+  const { error } = await supabaseRepository.deleteExpense(state.wallet.id, expense.id);
+  if (error) {
+    console.error("No se pudo eliminar el gasto.", error);
+    button.disabled = false;
+    button.classList.remove("state-loading");
+    delete button.dataset.confirmState;
+    button.removeAttribute("aria-busy");
+    button.setAttribute("aria-label", `Eliminar gasto ${expense.description}`);
+    button.title = "Eliminar gasto";
+    if (label) label.textContent = "Eliminar";
+    notify(getErrorMessage(error), true);
+    return;
+  }
+  await refreshAndNotify("Gasto eliminado; el monto volvió al saldo disponible.");
+}
+
 function handleGoalActions(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
@@ -577,7 +741,11 @@ async function handleInvite(event) {
 }
 
 async function refreshAndNotify(message) {
-  if (await loadWorkspace(state.user)) notify(message);
+  if (await loadWorkspace(state.user)) {
+    notify(message);
+    return true;
+  }
+  return false;
 }
 
 async function handleLogout() {
@@ -590,7 +758,7 @@ async function handleLogout() {
       return;
     }
     demoMode = false;
-    state = { user: null, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], goals: [] };
+    state = { user: null, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], settlements: [], goals: [] };
     document.querySelector("#session-email").hidden = true;
     document.querySelector("#logout-button").hidden = true;
     document.querySelector("#offline-note").hidden = false;
@@ -619,20 +787,25 @@ async function handleLogout() {
 }
 
 function initializeEventHandlers() {
-  document.querySelector("#theme-toggle").addEventListener("click", () => {
-    const currentTheme = document.documentElement.dataset.theme;
-    setTheme(currentTheme === "rosa" ? "claro" : "rosa", true);
-  });
+  appNavigation = new AppNavigation();
+
   document.querySelector("#form-login").addEventListener("submit", handleLogin);
   document.querySelector("#form-wallet").addEventListener("submit", handleCreateWallet);
   document.querySelector("#form-nombres").addEventListener("submit", handleSaveNames);
   document.querySelector("#form-ingreso").addEventListener("submit", handleNewIncome);
   document.querySelector("#form-gasto").addEventListener("submit", handleNewExpense);
+  document.querySelector("#form-settlement").addEventListener("submit", handleRegisterSettlement);
+  document.querySelectorAll("[data-close-settlement]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelector("#dashboard-settlement-dialog").close();
+    });
+  });
   document.querySelector("#form-meta").addEventListener("submit", handleNewGoal);
   document.querySelector("#form-invitacion").addEventListener("submit", handleInvite);
   document.querySelector("#goals-list").addEventListener("submit", handleContribute);
   document.querySelector("#goals-list").addEventListener("click", handleGoalActions);
   document.querySelector("#income-list").addEventListener("click", handleDeleteIncome);
+  document.querySelector("#expense-list").addEventListener("click", handleDeleteExpense);
   document.querySelector("#logout-button").addEventListener("click", handleLogout);
   document.querySelectorAll("[data-start-demo]").forEach((button) => {
     button.addEventListener("click", startDemo);
@@ -655,7 +828,7 @@ function listenForAuthChanges() {
 }
 
 async function initializeApp() {
-  initializeTheme();
+  themeToggle.initialize();
   initializeEventHandlers();
 
   const hasSupabaseConfiguration = Boolean(

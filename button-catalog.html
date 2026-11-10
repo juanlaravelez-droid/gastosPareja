@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Sistema de botones · GastosPareja</title>
+    <link rel="stylesheet" href="styles.css?v=8">
+  </head>
+  <body>
+    <main class="button-catalog app-shell">
+      <header class="button-catalog-header">
+        <p class="eyebrow">GASTOSPAREJA · SISTEMA DE DISEÑO</p>
+        <h1>Botones y controles</h1>
+        <p>Componentes accesibles, táctiles y listos para las acciones de la billetera.</p>
+        <a class="button button-ghost" href="index.html">← Volver a la billetera</a>
+      </header>
+
+      <section class="button-example" aria-labelledby="primary-example-title">
+        <h2 id="primary-example-title">Primary · acciones principales</h2>
+        <p>Para guardar movimientos o saldar cuentas. El ejemplo muestra el estado de carga sin cambiar el tamaño del botón.</p>
+        <div class="button-example-row">
+          <button class="button button-primary" type="button" data-demo-loading>
+            <svg class="button-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".25"></circle>
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+            </svg>
+            <span class="button-label">Guardar movimiento</span>
+          </button>
+          <button class="button button-primary" type="button">Saldar cuenta</button>
+        </div>
+      </section>
+
+      <section class="button-example" aria-labelledby="secondary-example-title">
+        <h2 id="secondary-example-title">Secondary / Outline</h2>
+        <p>Acciones de apoyo y navegación reversible.</p>
+        <div class="button-example-row">
+          <button class="button button-secondary" type="button" data-demo-filter>Filtrar historial</button>
+          <button class="button button-outline" type="button">Cancelar</button>
+        </div>
+      </section>
+
+      <section class="button-example" aria-labelledby="ghost-example-title">
+        <h2 id="ghost-example-title">Ghost · acciones discretas</h2>
+        <p>Para acciones secundarias en cabeceras, tablas y tarjetas.</p>
+        <div class="button-example-row">
+          <button class="button button-ghost" type="button">Editar</button>
+          <button class="button button-ghost" type="button">Ver detalles</button>
+        </div>
+      </section>
+
+      <section class="button-example" aria-labelledby="destructive-example-title">
+        <h2 id="destructive-example-title">Destructive · confirmar antes de borrar</h2>
+        <p>Presiona una vez para preparar la acción y otra vez para confirmar; el aviso se restablece después de unos segundos.</p>
+        <div class="button-example-row">
+          <button class="button button-destructive" type="button" data-demo-delete>
+            <span class="button-label">Eliminar gasto</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="button-example" aria-labelledby="chips-example-title">
+        <h2 id="chips-example-title">Chips · selección múltiple</h2>
+        <p>Elige una o más categorías para filtrar los movimientos.</p>
+        <div class="chip-group" role="group" aria-label="Filtrar por categorías">
+          <button class="button button-chip" type="button" aria-pressed="false">Mercado</button>
+          <button class="button button-chip" type="button" aria-pressed="false">Salidas</button>
+          <button class="button button-chip" type="button" aria-pressed="false">Servicios</button>
+          <button class="button button-chip" type="button" aria-pressed="false">Casa</button>
+        </div>
+      </section>
+
+      <section class="button-example" aria-labelledby="segmented-example-title">
+        <h2 id="segmented-example-title">Segmented control · selección única</h2>
+        <p>Selecciona cómo dividir una cuenta entre integrantes.</p>
+        <div class="segmented-control" role="radiogroup" aria-label="Método de división">
+          <button class="button" type="button" role="radio" aria-checked="true" tabindex="0">En partes iguales</button>
+          <button class="button" type="button" role="radio" aria-checked="false" tabindex="-1">Por porcentaje</button>
+          <button class="button" type="button" role="radio" aria-checked="false" tabindex="-1">Monto personalizado</button>
+        </div>
+      </section>
+
+      <p class="button-catalog-status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script>
+      const catalog = document.querySelector(".button-catalog");
+      const status = document.querySelector(".button-catalog-status");
+      let confirmationTimer;
+
+      catalog.addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (!button) return;
+
+        if (button.matches("[data-demo-loading]")) {
+          button.disabled = true;
+          button.classList.add("state-loading");
+          status.textContent = "Guardando movimiento…";
+          window.setTimeout(() => {
+            button.disabled = false;
+            button.classList.remove("state-loading");
+            status.textContent = "Movimiento guardado (demostración).";
+          }, 1200);
+          return;
+        }
+
+        if (button.matches("[data-demo-filter]")) {
+          status.textContent = "Los filtros se aplican al historial en la pantalla de movimientos.";
+          return;
+        }
+
+        if (button.matches("[data-demo-delete]")) {
+          if (button.dataset.confirmState === "warning") {
+            window.clearTimeout(confirmationTimer);
+            button.removeAttribute("data-confirm-state");
+            button.querySelector(".button-label").textContent = "Eliminar gasto";
+            status.textContent = "El gasto se eliminaría aquí (demostración).";
+          } else {
+            button.dataset.confirmState = "warning";
+            button.querySelector(".button-label").textContent = "¿Confirmar eliminación?";
+            status.textContent = "Presiona de nuevo para confirmar.";
+            window.clearTimeout(confirmationTimer);
+            confirmationTimer = window.setTimeout(() => {
+              button.removeAttribute("data-confirm-state");
+              button.querySelector(".button-label").textContent = "Eliminar gasto";
+              status.textContent = "La confirmación expiró.";
+            }, 4000);
+          }
+          return;
+        }
+
+        if (button.matches(".button-chip")) {
+          button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
+          return;
+        }
+
+        if (button.matches('[role="radio"]')) {
+          const options = [...button.parentElement.querySelectorAll('[role="radio"]')];
+          options.forEach((option) => {
+            const selected = option === button;
+            option.setAttribute("aria-checked", String(selected));
+            option.tabIndex = selected ? 0 : -1;
+          });
+        }
+      });
+
+      catalog.addEventListener("keydown", (event) => {
+        if (!event.target.matches('.segmented-control [role="radio"]')) return;
+        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+
+        event.preventDefault();
+        const options = [...event.target.parentElement.querySelectorAll('[role="radio"]')];
+        const currentIndex = options.indexOf(event.target);
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const nextOption = options[(currentIndex + offset + options.length) % options.length];
+        nextOption.focus();
+        nextOption.click();
+      });
+    </script>
+  </body>
+</html>

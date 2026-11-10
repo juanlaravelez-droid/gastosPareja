@@ -10,6 +10,7 @@ function createWorkspaceClient() {
     wallet_members: [{ user_id: "user-1", member_index: 1 }],
     incomes: [{ id: "income-1", amount: 50 }],
     expenses: [],
+    settlements: [],
     goals: [],
   };
 
@@ -65,6 +66,7 @@ test("loads wallet records through the repository and maps workspace state", asy
     members: [{ user_id: "user-1", member_index: 1 }],
     incomes: [{ id: "income-1", amount: 50 }],
     expenses: [],
+    settlements: [],
     goals: [],
   });
   assert.ok(client.calls.some((call) => call.kind === "eq" && call.column === "user_id" && call.value === "user-1"));
@@ -89,6 +91,48 @@ test("maps goal update arguments to the existing database RPC", async () => {
       p_title: "Viaje",
       p_target_amount: 5000,
       p_target_date: "2026-12-31",
+    },
+  ]]);
+});
+
+test("maps expense deletion to the wallet-scoped RPC", async () => {
+  const calls = [];
+  const repository = createSupabaseRepository({
+    rpc: async (...args) => {
+      calls.push(args);
+      return { data: null, error: null };
+    },
+  });
+
+  await repository.deleteExpense("wallet-1", "expense-1");
+
+  assert.deepEqual(calls, [[
+    "delete_expense",
+    {
+      p_wallet_id: "wallet-1",
+      p_expense_id: "expense-1",
+    },
+  ]]);
+});
+
+test("maps settlement registration to the wallet-scoped RPC", async () => {
+  const calls = [];
+  const repository = createSupabaseRepository({
+    rpc: async (...args) => {
+      calls.push(args);
+      return { data: null, error: null };
+    },
+  });
+
+  await repository.registerSettlement("wallet-1", "member-1", "member-2", 125.5);
+
+  assert.deepEqual(calls, [[
+    "register_settlement",
+    {
+      p_wallet_id: "wallet-1",
+      p_payer_id: "member-1",
+      p_receiver_id: "member-2",
+      p_amount: 125.5,
     },
   ]]);
 });

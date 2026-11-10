@@ -2,309 +2,308 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f5f6f2">
-    <meta name="description" content="Una billetera compartida para organizar ingresos, gastos y metas de ahorro en pareja.">
-    <title>Billetera en pareja</title>
-    <link rel="stylesheet" href="styles.css?v=4">
-    <script type="module" src="app.js?v=3"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0d1a2d">
+    <meta name="description" content="DuoBalance: finanzas compartidas en pareja con gastos, aportes, metas y saldos netos.">
+    <title>DuoBalance · Finanzas en pareja</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=18">
+    <script type="module" src="app.js?v=16"></script>
   </head>
   <body>
-    <div class="app-shell">
+    <div class="app-layout">
       <header class="topbar">
-        <a class="brand" href="#" aria-label="Billetera en pareja, inicio">
-          <span class="brand-mark" aria-hidden="true">b</span>
-          <span>Billetera <span class="brand-light">en pareja</span></span>
+        <a class="brand" href="#" aria-label="DuoBalance, inicio">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><circle cx="16" cy="20" r="10.5" stroke="#B58A45" stroke-width="3"/><circle cx="24" cy="20" r="10.5" stroke="#F4F1EA" stroke-width="3"/></svg></span>
+          <span class="brand-text">DuoBalance</span>
         </a>
         <div class="session-controls">
-          <button id="theme-toggle" class="button button-light theme-toggle" type="button" aria-pressed="false">Tema rosa</button>
-          <span id="session-email" class="topbar-note" hidden></span>
-          <button id="logout-button" class="button button-light" type="button" hidden>Cerrar sesión</button>
-          <span id="offline-note" class="topbar-note"><span class="status-dot"></span> Billetera compartida y privada</span>
+          <button id="theme-toggle" class="button button-light theme-toggle" type="button" aria-pressed="false">
+            <span class="theme-icon" aria-hidden="true">☀️</span>
+            <span data-theme-label>Tema claro</span>
+          </button>
+          <span id="session-email" class="topbar-note user-pill" hidden></span>
+          <button id="logout-button" class="button button-ghost" type="button" hidden>Cerrar sesión</button>
+          <span id="offline-note" class="topbar-note status-pill"><span class="status-dot"></span><span>Espacio privado</span></span>
+          <div class="dashboard-user-actions">
+            <button class="dashboard-icon-button" type="button" data-dashboard-notifications aria-label="Ver notificaciones">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+              <span data-dashboard-notification-count class="dashboard-notification-count" hidden></span>
+            </button>
+            <span class="dashboard-avatar" data-dashboard-avatar aria-hidden="true">—</span>
+            <span class="visually-hidden" data-dashboard-user></span>
+          </div>
         </div>
       </header>
 
       <section id="config-view" class="panel access-panel" aria-labelledby="config-title" hidden>
-        <p class="eyebrow">CONFIGURACIÓN PENDIENTE</p>
+        <div class="access-badge">Configuración pendiente</div>
         <h1 id="config-title">Conecten su proyecto</h1>
         <p class="panel-intro">La app necesita la URL y la clave publicable de Supabase. Completen <code>supabase-config.js</code>, ejecuten <code>supabase/schema.sql</code> y sirvan esta carpeta por HTTP para habilitar el acceso compartido.</p>
         <div class="demo-entry">
-          <p>¿Solo quieren conocer la app? Prueben la demo local; no requiere correo ni conexión con Supabase.</p>
-          <button class="button button-dark button-full" type="button" data-start-demo>Probar demo local</button>
+          <p>¿Solo quieren conocer la app? Prueben la demo local interactiva; no requiere correo ni conexión con Supabase.</p>
+          <button class="button button-primary button-full" type="button" data-start-demo>Probar demo local interactiva →</button>
         </div>
       </section>
+
       <section id="auth-view" class="panel access-panel auth-panel" aria-labelledby="auth-title" hidden>
-        <img class="auth-logo" src="img/logo.jpg" alt="Dúo, finanzas en pareja">
-        <p class="eyebrow">ACCESO SEGURO</p>
+        <img class="auth-logo" src="img/logo.jpeg" alt="Dúo, finanzas en pareja">
+        <div class="access-badge">Acceso seguro</div>
         <h1 id="auth-title">Entren a su billetera</h1>
-        <p class="panel-intro">Escriban su correo y les enviaremos un enlace de acceso. No necesitan contraseña.</p>
+        <p class="panel-intro">Escriban su correo electrónico y les enviaremos un enlace mágico de acceso directo sin contraseñas.</p>
         <form id="form-login" class="stacked-form" novalidate>
           <label>
-            <span>Correo electrónico</span>
+            <span class="label-text">Correo electrónico</span>
             <input id="login-email" name="email" type="email" autocomplete="email" placeholder="ustedes@correo.com" required>
           </label>
           <button class="button button-primary button-full" type="submit">Enviar enlace de acceso <span aria-hidden="true">→</span></button>
         </form>
         <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
         <div class="demo-entry">
-          <p>También pueden explorar la billetera sin enviar un correo. La demo guarda los cambios solo en este navegador.</p>
-          <button class="button button-dark button-full" type="button" data-start-demo>Probar demo local</button>
+          <p>También pueden explorar todas las funciones de inmediato en modo demo local.</p>
+          <button class="button button-secondary button-full" type="button" data-start-demo>Probar demo local inmediata</button>
         </div>
         <img class="auth-couple" src="img/pareja.jpg" alt="Pareja conversando y organizando sus finanzas juntos">
       </section>
 
       <section id="setup-view" class="panel access-panel" aria-labelledby="setup-title" hidden>
-        <p class="eyebrow">SU ESPACIO COMPARTIDO</p>
-        <h1 id="setup-title">Crear billetera</h1>
-        <p id="setup-message" class="panel-intro">Aún no pertenecen a una billetera. Pueden crear una o pedir a su pareja que les envíe una invitación a este correo.</p>
+        <div class="access-badge">Su espacio compartido</div>
+        <h1 id="setup-title">Crear billetera en pareja</h1>
+        <p id="setup-message" class="panel-intro">Aún no pertenecen a una billetera compartida. Creen una aquí o pidan a su pareja una invitación por correo.</p>
         <form id="form-wallet" class="stacked-form" novalidate>
           <label>
-            <span>Nombre de la primera persona</span>
-            <input name="miembro1" type="text" maxlength="40" required>
+            <span class="label-text">Nombre de la primera persona</span>
+            <input name="miembro1" type="text" maxlength="40" placeholder="Ej. Camila" required>
           </label>
           <label>
-            <span>Nombre de la segunda persona</span>
-            <input name="miembro2" type="text" maxlength="40" required>
+            <span class="label-text">Nombre de la segunda persona</span>
+            <input name="miembro2" type="text" maxlength="40" placeholder="Ej. Alejandro" required>
           </label>
           <button class="button button-primary button-full" type="submit">Crear billetera <span aria-hidden="true">→</span></button>
         </form>
       </section>
 
-      <main id="dashboard" hidden>
+      <main id="dashboard" class="dashboard-layout" hidden>
         <div id="demo-notice" class="demo-notice" role="status" hidden>
-          Están en la demo local. Los cambios se guardan solo en este navegador y no se comparten con otra persona.
+          <span class="demo-badge">Modo Demo</span>
+          <span>Están usando la demo local en este navegador. Los datos son privados e instantáneos.</span>
         </div>
-        <section class="welcome">
-          <div>
-            <p class="eyebrow">FINANZAS COMPARTIDAS</p>
-            <h1>Un plan en común,<br><span>paso a paso.</span></h1>
-            <p class="welcome-copy">Registren sus ingresos y conviertan sus planes en metas alcanzables.</p>
-          </div>
-          <div class="welcome-art" aria-hidden="true">
-            <span class="art-sun"></span>
-            <span class="art-coin coin-one">$</span>
-            <span class="art-coin coin-two">$</span>
-            <span class="art-plant">✳</span>
-          </div>
-        </section>
-
         <div id="notification" class="notification" role="status" aria-live="polite" hidden></div>
 
-        <section class="summary-section" aria-labelledby="summary-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">VISTA GENERAL</p>
-              <h2 id="summary-title">Así va su billetera</h2>
-            </div>
-            <span class="privacy-label"><span aria-hidden="true">◉</span> Solo ustedes dos</span>
-          </div>
-          <div class="summary-grid">
-            <article class="summary-card balance-card">
-              <div class="card-label"><span class="metric-icon">↗</span> Saldo disponible</div>
-              <p id="saldo-disponible" class="metric-value">$ 0</p>
-              <p class="metric-caption">Listo para asignar a sus metas</p>
-            </article>
-            <article class="summary-card">
-              <div class="card-label"><span class="metric-icon income-icon">＋</span> Total aportado</div>
-              <p id="total-ingresos" class="metric-value">$ 0</p>
-              <p class="metric-caption">Ingresos registrados</p>
-            </article>
-            <article class="summary-card">
-              <div class="card-label"><span class="metric-icon expense-summary-icon">−</span> Total gastado</div>
-              <p id="total-gastos" class="metric-value">$ 0</p>
-              <p class="metric-caption">Gastos registrados</p>
-            </article>
-            <article class="summary-card">
-              <div class="card-label"><span class="metric-icon saved-icon">⌂</span> Ahorrado en metas</div>
-              <p id="total-ahorrado" class="metric-value">$ 0</p>
-              <p class="metric-caption">Fondos que ya tienen un destino</p>
-            </article>
-          </div>
-          <div class="member-summary" aria-label="Aportes por miembro">
-            <div class="member-line">
-              <span class="member-avatar avatar-one">1</span>
-              <span id="nombre-miembro1" class="member-name">Miembro 1</span>
-              <span id="aporte-miembro1" class="member-amount">$ 0</span>
-            </div>
-            <div class="member-line">
-              <span class="member-avatar avatar-two">2</span>
-              <span id="nombre-miembro2" class="member-name">Miembro 2</span>
-              <span id="aporte-miembro2" class="member-amount">$ 0</span>
+        <nav class="navigation-bar" aria-label="Navegación principal">
+          <div class="nav-brand">
+            <div class="brand-badge" aria-hidden="true"><svg class="nav-brand-logo" viewBox="0 0 40 40" fill="none"><circle cx="16" cy="20" r="10.5" stroke="#B58A45" stroke-width="3"/><circle cx="24" cy="20" r="10.5" stroke="#F4F1EA" stroke-width="3"/></svg></div>
+            <div class="brand-text-col">
+              <span class="brand-title">DuoBalance</span>
+              <span class="brand-subtitle">Finanzas compartidas</span>
             </div>
           </div>
-          <form id="form-nombres" class="member-settings" novalidate>
-            <p class="settings-title">Personalicen sus nombres</p>
-            <label>
-              <span>Persona 1</span>
-              <input id="nombre-miembro1-edicion" name="miembro1" type="text" maxlength="40" required>
-            </label>
-            <label>
-              <span>Persona 2</span>
-              <input id="nombre-miembro2-edicion" name="miembro2" type="text" maxlength="40" required>
-            </label>
-            <button class="button button-dark" type="submit">Guardar nombres</button>
-          </form>
-        </section>
+          <div class="nav-items-group" role="tablist" aria-label="Secciones de la app">
+            <button id="tab-balance" class="nav-item active" role="tab" aria-selected="true" aria-controls="view-balance" data-target="view-balance">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/></svg>
+              <span class="nav-label">Dashboard</span>
+            </button>
+            <button id="tab-movements" class="nav-item" role="tab" aria-selected="false" aria-controls="view-movements" data-target="view-movements">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 9h18M16 15h.01M7 5V3h11"/></svg>
+              <span class="nav-label">Movimientos</span>
+            </button>
+            <button id="tab-stats" class="nav-item" role="tab" aria-selected="false" aria-controls="view-stats" data-target="view-stats">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10m5 10V4m5 16v-7m5 7V7M2 20h20"/></svg>
+              <span class="nav-label">Reportes</span>
+            </button>
+            <button id="tab-settings" class="nav-item" role="tab" aria-selected="false" aria-controls="view-settings" data-target="view-settings">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.8Z"/></svg>
+              <span class="nav-label">Ajustes</span>
+            </button>
+          </div>
+          <div class="fab-wrapper">
+            <button id="fab-add-expense" class="fab-button" type="button" aria-label="Registrar nuevo gasto o aporte" title="Registrar nuevo gasto o aporte">
+              <svg class="fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              <span class="fab-label-desktop">Nuevo registro</span>
+            </button>
+          </div>
+          <div class="nav-profile-card">
+            <div class="avatar-group" aria-hidden="true"><span class="avatar avatar-1">1</span><span class="avatar avatar-2">2</span></div>
+            <div class="profile-info"><span class="profile-name">Billetera de pareja</span><span class="profile-status">Espacio compartido</span></div>
+          </div>
+        </nav>
 
-        <section class="workspace-grid" aria-label="Administrar billetera">
-          <div class="main-column">
+        <div class="main-content">
+          <section id="view-balance" class="view-panel" role="tabpanel" aria-labelledby="tab-balance" tabindex="0">
+            <section id="finance-dashboard" class="finance-dashboard" aria-labelledby="dashboard-title">
+              <header class="dashboard-appbar">
+                <h1 id="dashboard-title">Dashboard</h1>
+              </header>
+              <section class="dashboard-hero" aria-labelledby="dashboard-month-title">
+                <div class="dashboard-hero-heading">
+                  <span class="dashboard-calendar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span>
+                  <div><h2 id="dashboard-month-title" data-dashboard-month-title>Tu resumen del mes</h2><p>Estos son tus números del mes en curso</p></div>
+                  <div class="dashboard-hero-actions">
+                    <button id="btn-toggle-visibility" class="dashboard-icon-button" type="button" data-toggle-balances aria-pressed="false" aria-label="Ocultar saldos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    <button class="dashboard-icon-button" type="button" data-dashboard-report-filter aria-label="Ver movimientos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6"/></svg></button>
+                  </div>
+                </div>
+              </section>
+              <section class="dashboard-status-grid" aria-label="Estado de cuentas y movimientos">
+                <article class="dashboard-status-card status-pending"><span>Pendientes</span><strong data-dashboard-pending>0</strong><span>saldo por liquidar</span></article>
+                <article class="dashboard-status-card status-overdue"><span>Vencidos</span><strong data-dashboard-overdue>0</strong><span>sin fechas vencidas</span></article>
+                <article class="dashboard-status-card status-paid"><span>Pagados</span><strong data-dashboard-paid>0</strong><span>gastos este mes</span></article>
+              </section>
+              <section class="dashboard-metrics-grid" aria-label="Resumen financiero">
+                <article class="dashboard-metric-card dashboard-balance-card" data-dashboard-net-card>
+                  <span class="dashboard-card-label dashboard-balance-badge" data-dashboard-balance-label>En balance</span>
+                  <strong class="dashboard-metric-value is-green" data-dashboard-balance data-dashboard-net-balance>—</strong>
+                  <span class="dashboard-card-note" data-dashboard-balance-caption>Balance neto entre ustedes</span>
+                  <button class="button button-outline dashboard-quick-settle" type="button" data-dashboard-settle disabled>Saldar</button>
+                </article>
+                <article class="dashboard-metric-card">
+                  <span class="dashboard-card-label">Proyección a fin de mes</span>
+                  <strong class="dashboard-metric-value is-green" data-dashboard-balance data-dashboard-projection>—</strong>
+                  <span class="dashboard-card-note" data-dashboard-projection-note>Según el ritmo de gasto actual</span>
+                  <span class="dashboard-card-note" data-dashboard-month-caption></span>
+                </article>
+                <article class="dashboard-metric-card">
+                  <span class="dashboard-card-label">Aportado por ti</span>
+                  <strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-my-contribution>—</strong>
+                  <span class="dashboard-card-note">Ingresos registrados por ti</span>
+                </article>
+                <article class="dashboard-metric-card">
+                  <span class="dashboard-card-label">Aportado por tu pareja</span>
+                  <strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-partner-contribution>—</strong>
+                  <span class="dashboard-card-note">Ingresos registrados por tu pareja</span>
+                </article>
+              </section>
+              <section class="dashboard-secondary-grid" aria-label="Saldos por completar">
+                <article class="dashboard-metric-card dashboard-settlement-card">
+                  <div><span class="dashboard-card-label">Pendiente por saldar</span><strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-settlement>—</strong><span class="dashboard-card-note" data-dashboard-pending-caption>No hay saldos pendientes entre ustedes</span></div>
+                </article>
+                <article class="dashboard-metric-card">
+                  <span class="dashboard-card-label">Fondo común · total ahorrado</span>
+                  <strong class="dashboard-metric-value is-green" data-dashboard-balance data-dashboard-savings>—</strong>
+                  <span class="dashboard-card-note">Dinero asignado a sus metas</span>
+                </article>
+              </section>
+              <section class="dashboard-upcoming" aria-labelledby="dashboard-upcoming-title">
+                <h2 id="dashboard-upcoming-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Próximos pagos</h2>
+                <p data-dashboard-upcoming>Todo en orden para el próximo mes</p>
+                <span class="dashboard-data-note">Los gastos registrados se consideran pagados; todavía no hay pagos programados.</span>
+              </section>
+            </section>
+          </section>
+
+          <section id="view-movements" class="view-panel" role="tabpanel" aria-labelledby="tab-movements" tabindex="0" hidden>
+            <header class="view-header"><span class="view-eyebrow">ACTIVIDAD FINANCIERA</span><h1 class="view-title">Movimientos</h1></header>
+            <div class="workspace-grid movement-grid">
+              <div class="main-column">
+                <section class="panel history-panel" aria-labelledby="expenses-title">
+                  <div class="panel-heading"><div><span class="eyebrow">GASTOS COMPARTIDOS</span><h2 id="expenses-title">Últimos gastos</h2></div><span id="expense-count" class="count-pill pill-expense">0 gastos</span></div>
+                  <div id="expense-list" class="income-list transaction-list"></div>
+                  <div id="expense-empty" class="empty-state compact-empty" hidden><div class="empty-icon-wrap empty-coral" aria-hidden="true"><span class="empty-icon">💳</span></div><h3>Aún no hay gastos registrados</h3><p>Los nuevos gastos aparecerán aquí.</p></div>
+                </section>
+                <section class="panel history-panel" aria-labelledby="income-history-title">
+                  <div class="panel-heading"><div><span class="eyebrow">CADA APORTE CUENTA</span><h2 id="income-history-title">Últimos ingresos y aportes</h2></div><span id="income-count" class="count-pill pill-income">0 ingresos</span></div>
+                  <div id="income-list" class="income-list transaction-list"></div>
+                  <div id="income-empty" class="empty-state compact-empty" hidden><div class="empty-icon-wrap empty-emerald" aria-hidden="true"><span class="empty-icon">↗</span></div><h3>Aún no hay aportes registrados</h3><p>Cuando registren un aporte, aparecerá listado aquí.</p></div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section id="view-stats" class="view-panel" role="tabpanel" aria-labelledby="tab-stats" tabindex="0" hidden>
+            <header class="view-header"><span class="view-eyebrow">METAS Y RESUMEN</span><h1 class="view-title">Reportes y metas</h1></header>
             <section class="panel goals-panel" aria-labelledby="goals-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">LO QUE ESTÁN CONSTRUYENDO</p>
-                  <h2 id="goals-title">Metas de ahorro</h2>
-                </div>
-                <span id="goal-count" class="count-pill">0 metas</span>
-              </div>
+              <div class="panel-heading"><div><span class="eyebrow">LO QUE ESTÁN CONSTRUYENDO</span><h2 id="goals-title">Metas de ahorro</h2></div><span id="goal-count" class="count-pill">0 metas</span></div>
               <div id="goals-list" class="goals-list"></div>
-              <div id="goals-empty" class="empty-state" hidden>
-                <span class="empty-icon" aria-hidden="true">✳</span>
-                <h3>Todo gran plan empieza con una meta</h3>
-                <p>Creen su primera meta y empiecen a ahorrar juntos.</p>
-              </div>
-              <form id="form-meta" class="inline-form goal-form" novalidate>
-                <div class="form-title">
-                  <span class="plus-mark" aria-hidden="true">＋</span>
-                  <div>
-                    <h3>Crear una meta</h3>
-                    <p>Pónganle nombre a eso que quieren lograr.</p>
-                  </div>
+              <div id="goals-empty" class="empty-state" hidden><div class="empty-icon-wrap" aria-hidden="true"><span class="empty-icon">🎯</span></div><h3>Todo gran sueño empieza con una meta</h3><p>Definan un plan en común y ahorren juntos paso a paso.</p></div>
+              <form id="form-meta" class="goal-form" novalidate>
+                <div class="form-title"><span class="plus-mark" aria-hidden="true">＋</span><div><h3>Crear una nueva meta</h3><p>Pónganle nombre y objetivo a eso que quieren lograr.</p></div></div>
+                <div class="form-grid-2">
+                  <label class="form-span-2"><span class="label-text">Nombre de la meta</span><input id="meta-titulo" name="titulo" type="text" minlength="3" maxlength="80" placeholder="Ej. Viaje, fondo de emergencia..." required></label>
+                  <label><span class="label-text">¿Cuánto necesitan?</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input id="meta-objetivo" name="montoObjetivo" type="number" min="0.01" step="any" inputmode="decimal" placeholder="3.000.000" required></div></label>
+                  <label><span class="label-text">Fecha objetivo (opcional)</span><input id="meta-fecha" name="fechaObjetivo" type="date"></label>
                 </div>
-                <label>
-                  <span>Nombre de la meta</span>
-                  <input id="meta-titulo" name="titulo" type="text" minlength="3" maxlength="80" placeholder="Ej. Viaje a la playa" required>
-                </label>
-                <label>
-                  <span>¿Cuánto necesitan?</span>
-                  <div class="input-with-prefix">
-                    <span>$</span>
-                    <input id="meta-objetivo" name="montoObjetivo" type="number" min="0.01" step="any" inputmode="decimal" placeholder="3.000.000" required>
-                  </div>
-                </label>
-                <label>
-                  <span>¿Para cuándo la quieren lograr? (opcional)</span>
-                  <input id="meta-fecha" name="fechaObjetivo" type="date">
-                </label>
-                <button class="button button-dark button-full" type="submit">Crear meta <span aria-hidden="true">→</span></button>
+                <button class="button button-primary button-full" type="submit">Crear meta compartida <span aria-hidden="true">→</span></button>
               </form>
             </section>
+            <section class="dashboard-report-totals" aria-label="Totales de la billetera">
+              <article class="dashboard-metric-card"><span class="dashboard-card-label">Total ingresos</span><strong id="total-ingresos" class="dashboard-metric-value">—</strong><span class="dashboard-card-note">Aportes registrados</span></article>
+              <article class="dashboard-metric-card"><span class="dashboard-card-label">Total gastos</span><strong id="total-gastos" class="dashboard-metric-value">—</strong><span class="dashboard-card-note">Gastos compartidos</span></article>
+              <article class="dashboard-metric-card"><span class="dashboard-card-label">Total ahorrado</span><strong id="total-ahorrado" class="dashboard-metric-value is-green">—</strong><span class="dashboard-card-note">Fondos asignados a metas</span></article>
+            </section>
+          </section>
 
-            <section class="panel history-panel" aria-labelledby="history-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">CADA APORTE CUENTA</p>
-                  <h2 id="history-title">Últimos ingresos</h2>
-                </div>
-                <span id="income-count" class="count-pill">0 ingresos</span>
+          <section id="view-settings" class="view-panel" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
+            <header class="view-header"><span class="view-eyebrow">PERSONALIZACIÓN</span><h1 class="view-title">Ajustes</h1></header>
+            <form id="form-nombres" class="panel member-settings-panel" novalidate>
+              <div class="panel-heading"><div><span class="eyebrow">IDENTIDAD</span><h2>Nombres de la pareja</h2></div></div>
+              <p class="panel-intro">Personalicen los nombres con los que se registrarán todos los movimientos.</p>
+              <div class="settings-fields">
+                <label><span class="label-text">Persona 1</span><input id="nombre-miembro1-edicion" name="miembro1" type="text" maxlength="40" placeholder="Nombre persona 1" required></label>
+                <label><span class="label-text">Persona 2</span><input id="nombre-miembro2-edicion" name="miembro2" type="text" maxlength="40" placeholder="Nombre persona 2" required></label>
+                <button class="button button-primary" type="submit">Guardar nombres</button>
               </div>
-              <div id="income-list" class="income-list"></div>
-              <div id="income-empty" class="empty-state compact-empty" hidden>
-                <span class="empty-icon" aria-hidden="true">↗</span>
-                <h3>Aún no hay ingresos</h3>
-                <p>Cuando registren uno, podrán verlo aquí.</p>
-              </div>
-            </section>
-
-            <section class="panel history-panel" aria-labelledby="expenses-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">GASTOS COMPARTIDOS</p>
-                  <h2 id="expenses-title">Últimos gastos</h2>
-                </div>
-                <span id="expense-count" class="count-pill">0 gastos</span>
-              </div>
-              <div id="expense-list" class="income-list"></div>
-              <div id="expense-empty" class="empty-state compact-empty" hidden>
-                <span class="empty-icon" aria-hidden="true">−</span>
-                <h3>Aún no hay gastos</h3>
-                <p>Registren los gastos compartidos para ver el saldo real.</p>
-              </div>
-            </section>
-          </div>
-
-          <aside class="side-column">
-            <section class="panel income-panel" aria-labelledby="income-form-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">SUMAR AL FONDO</p>
-                  <h2 id="income-form-title">Nuevo ingreso</h2>
-                </div>
-                <span class="form-icon" aria-hidden="true">＋</span>
-              </div>
-              <p class="panel-intro">Cada aporte hace más grande el plan de los dos.</p>
-              <form id="form-ingreso" class="stacked-form" novalidate>
-                <label>
-                  <span>¿Quién aporta?</span>
-                  <select id="ingreso-autor" name="autor" required>
-                    <option value="miembro1">Miembro 1</option>
-                    <option value="miembro2">Miembro 2</option>
-                  </select>
-                </label>
-                <label>
-                  <span>¿Cuánto van a aportar?</span>
-                  <div class="input-with-prefix">
-                    <span>$</span>
-                    <input id="ingreso-monto" name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required>
-                  </div>
-                </label>
-                <button class="button button-primary button-full" type="submit">Agregar ingreso <span aria-hidden="true">→</span></button>
-              </form>
-            </section>
-            <section class="panel expense-panel" aria-labelledby="expense-form-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">ACTUALIZAR EL SALDO</p>
-                  <h2 id="expense-form-title">Nuevo gasto</h2>
-                </div>
-                <span class="form-icon expense-icon" aria-hidden="true">−</span>
-              </div>
-              <p class="panel-intro">Registren un gasto para descontarlo del saldo compartido.</p>
-              <form id="form-gasto" class="stacked-form" novalidate>
-                <label>
-                  <span>Descripción</span>
-                  <input name="descripcion" type="text" minlength="2" maxlength="100" placeholder="Ej. Mercado" required>
-                </label>
-                <label>
-                  <span>¿Cuánto gastaron?</span>
-                  <div class="input-with-prefix">
-                    <span>$</span>
-                    <input name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required>
-                  </div>
-                </label>
-                <button class="button button-dark button-full" type="submit">Registrar gasto <span aria-hidden="true">→</span></button>
-              </form>
-            </section>
+            </form>
             <section id="invite-panel" class="panel invite-panel" aria-labelledby="invite-title">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">BILLETERA EN PAREJA</p>
-                  <h2 id="invite-title">Invitar a alguien</h2>
-                </div>
-                <span class="form-icon" aria-hidden="true">✉</span>
-              </div>
-              <p class="panel-intro">Enviaremos un enlace de acceso a su correo. Solo habrá dos integrantes.</p>
+              <div class="panel-heading"><div><span class="eyebrow">BILLETERA COMPARTIDA</span><h2 id="invite-title">Invitar a tu pareja</h2></div><span class="form-icon" aria-hidden="true">✉</span></div>
+              <p class="panel-intro">Enviaremos un enlace mágico de acceso directo a su correo electrónico.</p>
               <form id="form-invitacion" class="stacked-form" novalidate>
-                <label>
-                  <span>Correo de la persona</span>
-                  <input name="email" type="email" autocomplete="email" placeholder="pareja@correo.com" required>
-                </label>
-                <button class="button button-dark button-full" type="submit">Enviar invitación <span aria-hidden="true">→</span></button>
+                <label><span class="label-text">Correo de tu pareja</span><input name="email" type="email" autocomplete="email" placeholder="pareja@correo.com" required></label>
+                <button class="button button-secondary button-full" type="submit">Enviar invitación por correo</button>
               </form>
               <p id="invite-message" class="form-message" role="status" aria-live="polite"></p>
             </section>
-            <div class="tip-card">
-              <span class="tip-sparkle" aria-hidden="true">✳</span>
-              <p id="tip-category" class="eyebrow">UN TIP PARA USTEDES</p>
-              <p id="tip-quote" aria-live="polite">Los pequeños aportes constantes también construyen grandes planes.</p>
+            <div class="tip-card"><span class="tip-sparkle" aria-hidden="true">💡</span><span id="tip-category" class="eyebrow">UN TIP PARA USTEDES</span><p id="tip-quote" aria-live="polite">Los pequeños aportes constantes también construyen grandes planes.</p></div>
+            <div class="legacy-dashboard-data" hidden>
+              <span id="saldo-disponible"></span><span id="nombre-miembro1"></span><span id="nombre-miembro2"></span>
+              <span id="aporte-miembro1"></span><span id="aporte-miembro2"></span><span id="porcentaje-miembro1"></span><span id="porcentaje-miembro2"></span>
+              <span id="estado-miembro1"></span><span id="estado-miembro2"></span><span id="balance-split-badge"></span>
+              <div id="split-fill-m1"></div><div id="split-fill-m2"></div>
             </div>
-          </aside>
-        </section>
+          </section>
+        </div>
+
+        <div id="modal-expense" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+          <div class="modal-card">
+            <header class="modal-header">
+              <div class="modal-tabs" role="tablist" aria-label="Tipo de movimiento">
+                <button id="modal-title" type="button" class="modal-tab-btn active" data-modal-tab="gasto" aria-selected="true">Nuevo gasto</button>
+                <button type="button" class="modal-tab-btn" data-modal-tab="aporte" aria-selected="false">Nuevo aporte</button>
+              </div>
+              <button id="modal-close" class="modal-close-btn" type="button" aria-label="Cerrar modal">×</button>
+            </header>
+            <div id="modal-pane-gasto" class="modal-tab-pane">
+              <p class="modal-desc">El gasto se dividirá entre ustedes y actualizará el saldo disponible.</p>
+              <form id="form-gasto" class="stacked-form" novalidate>
+                <label><span class="label-text">¿En qué gastaron?</span><input name="descripcion" type="text" minlength="2" maxlength="100" placeholder="Ej. Mercado, cena, servicios..." required></label>
+                <label><span class="label-text">Monto del gasto</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required></div></label>
+                <button class="button button-primary button-full" type="submit">Registrar gasto <span aria-hidden="true">→</span></button>
+              </form>
+            </div>
+            <div id="modal-pane-aporte" class="modal-tab-pane" hidden>
+              <p class="modal-desc">Suma fondos al saldo disponible compartido de ambos.</p>
+              <form id="form-ingreso" class="stacked-form" novalidate>
+                <label><span class="label-text">¿Quién aporta?</span><select id="ingreso-autor" name="autor" required><option value="">Selecciona integrante</option></select></label>
+                <label><span class="label-text">Monto a sumar</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required></div></label>
+                <button class="button button-emerald button-full" type="submit">Agregar al fondo <span aria-hidden="true">→</span></button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <dialog id="dashboard-settlement-dialog" class="settlement-dialog" aria-labelledby="settlement-title">
+          <form id="form-settlement" class="stacked-form" novalidate>
+            <header class="settlement-dialog-header"><div><span class="eyebrow">BALANCE COMPARTIDO</span><h2 id="settlement-title">Saldar cuenta</h2></div><button class="dashboard-icon-button" type="button" data-close-settlement aria-label="Cerrar">×</button></header>
+            <p id="settlement-description" class="panel-intro"></p>
+            <input name="payerId" type="hidden"><input name="receiverId" type="hidden">
+            <label><span class="label-text">Monto a saldar</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div></label>
+            <div class="settlement-dialog-actions"><button class="button button-outline" type="button" data-close-settlement>Cancelar</button><button class="button button-primary" type="submit">Confirmar pago</button></div>
+          </form>
+        </dialog>
       </main>
 
-      <footer class="footer">
-        <span>Billetera en pareja</span>
-        <span>Sus finanzas, a su manera.</span>
-      </footer>
+      <footer class="footer"><div class="footer-brand"><span class="footer-dot"></span><span>DuoBalance · Finanzas transparentes en equipo</span></div><span class="footer-copy">Diseñado para crecer juntos</span></footer>
     </div>
   </body>
 </html>
