@@ -55,6 +55,12 @@ py -m http.server 8000
 
 Abre `http://localhost:8000`. La app seguirá mostrando la configuración pendiente mientras `supabase-config.example.js`, el esquema o las funciones no estén listos.
 
+## Instalar DuoBalance como PWA
+
+Sirve la app por HTTPS (GitHub Pages ya lo proporciona) o en `localhost` durante desarrollo. En Android y navegadores compatibles aparecerá **Instalar DuoBalance** cuando el navegador permita instalarla. En iPhone o iPad, abre la app en Safari, toca **Instalar DuoBalance** y sigue la indicación para usar **Compartir → Agregar al inicio**.
+
+El service worker guarda la interfaz y sus recursos estáticos para volver a abrir la app sin conexión. El acceso Supabase, la sincronización y las operaciones compartidas requieren internet; la demo local puede usarse sin conexión si ya está guardada en ese navegador.
+
 ## Demo local
 
 En la pantalla de acceso o de configuración pendiente, selecciona **Probar demo local** para explorar la billetera sin enviar correos. La demo usa datos de ejemplo y guarda los cambios en el almacenamiento local de ese navegador; no crea una cuenta ni sincroniza datos con Supabase o con otra persona. Usa **Salir de demo** para volver al acceso normal. Los datos de ejemplo se conservan en ese navegador para la siguiente sesión de demo.

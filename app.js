@@ -1,4 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./supabase-config.example.js";
 import {
   validateExpense,
@@ -39,6 +38,8 @@ let state = {
   goalContributions: [],
 };
 let workspaceRequest = 0;
+let deferredInstallPrompt = null;
+let installBannerDismissed = false;
 const { notify, showFormMessage, showRandomTip, showView } = createUi(storageRepository);
 const themeToggle = new ThemeToggle(storageRepository, (message) => notify(message, true));
 const dashboardView = new DashboardView({
@@ -91,6 +92,83 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#39;",
   })[character]);
+}
+
+function initializePwa() {
+  const banner = document.querySelector("#pwa-install-banner");
+  const installButton = document.querySelector("[data-pwa-install]");
+  const dismissButton = document.querySelector("[data-pwa-dismiss]");
+  const installHelp = document.querySelector("[data-pwa-install-help]");
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone === true;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let isIosInstallGuide = false;
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch((error) => {
+      console.error("No se pudo registrar el service worker de DuoBalance.", error);
+    });
+  }
+
+  if (isStandalone) return;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (!installBannerDismissed) banner.hidden = false;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    banner.hidden = true;
+  });
+
+  dismissButton.addEventListener("click", () => {
+    installBannerDismissed = true;
+    banner.hidden = true;
+  });
+
+  installButton.addEventListener("click", async () => {
+    if (isIosInstallGuide) {
+      installHelp.hidden = !installHelp.hidden;
+      installButton.setAttribute("aria-expanded", String(!installHelp.hidden));
+      return;
+    }
+
+    if (!deferredInstallPrompt) return;
+
+    const installPrompt = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      banner.hidden = true;
+    } catch (error) {
+      console.error("No se pudo completar la instalación de DuoBalance.", error);
+      banner.hidden = true;
+    }
+  });
+
+  if (isIos) {
+    isIosInstallGuide = true;
+    installButton.setAttribute("aria-expanded", "false");
+    banner.hidden = false;
+  }
+}
+
+function hasSupabaseConfiguration() {
+  return Boolean(
+    SUPABASE_URL &&
+    SUPABASE_ANON_KEY &&
+    !SUPABASE_URL.includes("YOUR_PROJECT") &&
+    !SUPABASE_ANON_KEY.includes("YOUR_PUBLIC")
+  );
+}
+
+async function createConfiguredSupabaseRepository() {
+  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+  return createSupabaseRepository(createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
 }
 
 function getErrorMessage(error) {
@@ -825,6 +903,21 @@ async function handleLogout() {
     document.querySelector(".dashboard-user-actions").hidden = true;
     document.querySelector("#offline-note").hidden = false;
     document.querySelector("#demo-notice").hidden = true;
+    if (!supabaseRepository && hasSupabaseConfiguration()) {
+      try {
+        supabaseRepository = await createConfiguredSupabaseRepository();
+      } catch (error) {
+        console.error("No se pudo cargar el cliente de Supabase al salir de la demo.", error);
+        showView("auth-view");
+        showFormMessage(
+          "#auth-message",
+          "No se pudo conectar con el servicio de acceso. Comprueba tu conexión o vuelve a probar la demo local.",
+          true,
+        );
+        return;
+      }
+    }
+
     if (supabaseRepository) {
       const { data, error } = await supabaseRepository.getSession();
       if (error) {
@@ -892,22 +985,25 @@ function listenForAuthChanges() {
 }
 
 async function initializeApp() {
+  initializePwa();
   themeToggle.initialize();
   initializeEventHandlers();
 
-  const hasSupabaseConfiguration = Boolean(
-    SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    !SUPABASE_URL.includes("YOUR_PROJECT") &&
-    !SUPABASE_ANON_KEY.includes("YOUR_PUBLIC")
-  );
-  if (hasSupabaseConfiguration) {
-    supabaseRepository = createSupabaseRepository(createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
-  }
+  if (restoreDemoSession()) return;
 
-  if (restoreDemoSession()) {
-    if (supabaseRepository) listenForAuthChanges();
-    return;
+  if (hasSupabaseConfiguration()) {
+    try {
+      supabaseRepository = await createConfiguredSupabaseRepository();
+    } catch (error) {
+      console.error("No se pudo cargar el cliente de Supabase.", error);
+      showView("auth-view");
+      showFormMessage(
+        "#auth-message",
+        "No se pudo conectar con el servicio de acceso. Comprueba tu conexión o prueba la demo local.",
+        true,
+      );
+      return;
+    }
   }
 
   if (!hasSupabaseConfiguration) {

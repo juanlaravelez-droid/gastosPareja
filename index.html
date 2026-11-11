@@ -3,14 +3,19 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0d1a2d">
+    <meta name="theme-color" content="#10B981">
     <meta name="description" content="DuoBalance: finanzas compartidas en pareja con gastos, aportes, metas y saldos netos.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DuoBalance">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <title>DuoBalance · Finanzas en pareja</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=22">
-    <script type="module" src="app.js?v=18"></script>
+    <link rel="stylesheet" href="styles.css?v=23">
+    <script type="module" src="app.js?v=19"></script>
   </head>
   <body>
     <div class="app-layout">
@@ -36,6 +41,17 @@
           </div>
         </div>
       </header>
+      <aside id="pwa-install-banner" class="pwa-install-banner" aria-label="Instalar DuoBalance" hidden>
+        <div class="pwa-install-copy">
+          <strong>Ten DuoBalance a mano</strong>
+          <p>Instala la app para abrirla desde tu pantalla de inicio.</p>
+          <p class="pwa-install-help" data-pwa-install-help hidden>Toca Compartir y luego “Agregar al inicio”.</p>
+        </div>
+        <div class="pwa-install-actions">
+          <button class="button button-primary button-small" type="button" data-pwa-install>Instalar DuoBalance</button>
+          <button class="pwa-install-dismiss" type="button" data-pwa-dismiss aria-label="Cerrar aviso de instalación">×</button>
+        </div>
+      </aside>
 
       <section id="config-view" class="panel access-panel" aria-labelledby="config-title" hidden>
         <div class="access-badge">Configuración pendiente</div>
