@@ -8,7 +8,7 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
 
 1. Crea un proyecto en [Supabase](https://supabase.com/) y espera a que la base de datos termine de inicializarse.
 2. En **SQL Editor**, ejecuta el contenido de `supabase/schema.sql`.
-   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. Las migraciones anteriores habilitan la atribución de ingresos y la administración de metas. La migración `20261109000000_add_settlements.sql` agrega el registro de liquidaciones y los permisos requeridos por la versión actual de la app; aplícala en **SQL Editor** si aún no la ejecutaste.
+   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. Las migraciones anteriores habilitan la atribución de ingresos y la administración de metas. Aplica también `20261109000000_add_settlements.sql` para las liquidaciones y `20261110000000_add_goal_contributions.sql` para el registro de aportes individuales a metas.
 3. En **Project Settings → API**, copia la URL del proyecto y la clave publicable (o la clave `anon` heredada).
 4. Pega esos valores en `supabase-config.example.js`:
 
@@ -62,3 +62,5 @@ En la pantalla de acceso o de configuración pendiente, selecciona **Probar demo
 ## Modelo de saldo
 
 El saldo disponible es ingresos menos gastos menos fondos asignados a metas. Los gastos y aportes se validan de manera transaccional en PostgreSQL para evitar que dos operaciones simultáneas consuman el mismo saldo.
+
+Los aportes a metas registrados desde esta versión quedan asociados a la persona que los registra. Los saldos que ya estaban ahorrados antes de aplicar la migración no tienen autor histórico en la base de datos y se muestran como **sin desglose**; no se reparten entre los integrantes.

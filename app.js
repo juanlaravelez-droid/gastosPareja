@@ -9,16 +9,16 @@ import {
 import {
   calculateAvailableBalance,
   getDashboardSummary,
-} from "./src/application/wallet-service.js?v=1";
+} from "./src/application/wallet-service.js?v=2";
 import { addSettlement } from "./src/application/expense-service.js?v=1";
-import { createDemoStorage } from "./src/infrastructure/demo-storage.js";
-import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js?v=1";
+import { createDemoStorage } from "./src/infrastructure/demo-storage.js?v=2";
+import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js?v=2";
 import { addExpense, deleteExpense } from "./src/application/expense-service.js?v=1";
 import { createStorageRepository } from "./src/infrastructure/storage-repository.js?v=1";
-import { createRenderer } from "./src/presentation/render.js?v=2";
+import { createRenderer } from "./src/presentation/render.js?v=3";
 import { createUi } from "./src/presentation/ui.js?v=4";
 import { ThemeToggle } from "./src/presentation/components/ThemeToggle.js?v=1";
-import { AppNavigation } from "./src/presentation/navigation.js";
+import { AppNavigation } from "./src/presentation/navigation.js?v=2";
 import { DashboardView } from "./src/presentation/views/DashboardView.js?v=2";
 import { formatCurrency } from "./src/presentation/formatCurrency.js";
 let supabaseRepository;
@@ -36,6 +36,7 @@ let state = {
   expenses: [],
   settlements: [],
   goals: [],
+  goalContributions: [],
 };
 let workspaceRequest = 0;
 const { notify, showFormMessage, showRandomTip, showView } = createUi(storageRepository);
@@ -136,6 +137,7 @@ function commitDemoChange(update, message) {
     expenses: state.expenses.map((expense) => ({ ...expense })),
     settlements: (state.settlements || []).map((settlement) => ({ ...settlement })),
     goals: state.goals.map((goal) => ({ ...goal })),
+    goalContributions: (state.goalContributions || []).map((contribution) => ({ ...contribution })),
   };
   update();
   if (!saveDemoState()) {
@@ -152,6 +154,7 @@ function setDemoHeader(enabled) {
   const sessionLabel = document.querySelector("#session-email");
   const logoutButton = document.querySelector("#logout-button");
   const offlineNote = document.querySelector("#offline-note");
+  document.querySelector(".dashboard-user-actions").hidden = false;
   sessionLabel.textContent = enabled ? "Demo local" : state.user?.email || "";
   sessionLabel.hidden = !enabled && !state.user?.email;
   logoutButton.textContent = enabled ? "Salir de demo" : "Cerrar sesión";
@@ -206,6 +209,7 @@ async function loadWorkspace(user) {
   state.user = user;
   document.querySelector("#session-email").textContent = user.email;
   document.querySelector("#session-email").hidden = false;
+  document.querySelector(".dashboard-user-actions").hidden = false;
   document.querySelector("#logout-button").hidden = false;
   document.querySelector("#logout-button").textContent = "Cerrar sesión";
   document.querySelector("#offline-note").hidden = true;
@@ -217,7 +221,17 @@ async function loadWorkspace(user) {
     if (requestId !== workspaceRequest) return false;
 
     if (!workspace) {
-      state = { ...state, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], settlements: [], goals: [] };
+      state = {
+        ...state,
+        wallet: null,
+        memberIndex: null,
+        members: [],
+        incomes: [],
+        expenses: [],
+        settlements: [],
+        goals: [],
+        goalContributions: [],
+      };
       document.querySelector("#setup-title").textContent = "Crear billetera en pareja";
       document.querySelector("#form-wallet").hidden = false;
       showView("setup-view");
@@ -577,6 +591,8 @@ async function handleDeleteGoal(goalId) {
   if (demoMode) {
     commitDemoChange(() => {
       state.goals = state.goals.filter((item) => item.id !== goalId);
+      state.goalContributions = (state.goalContributions || [])
+        .filter((contribution) => contribution.goal_id !== goalId);
     }, "Meta eliminada de la demo; sus fondos volvieron al saldo disponible.");
     return;
   }
@@ -612,6 +628,14 @@ async function handleContribute(event) {
     }
     commitDemoChange(() => {
       goal.current_amount += amount;
+      state.goalContributions = state.goalContributions || [];
+      state.goalContributions.push({
+        id: crypto.randomUUID(),
+        goal_id: goal.id,
+        contributor_id: state.user.id,
+        amount,
+        created_at: new Date().toISOString(),
+      });
     }, "Aporte asignado a la meta en la demo.");
     return;
   }
@@ -785,9 +809,20 @@ async function handleLogout() {
       return;
     }
     demoMode = false;
-    state = { user: null, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], settlements: [], goals: [] };
+    state = {
+      user: null,
+      wallet: null,
+      memberIndex: null,
+      members: [],
+      incomes: [],
+      expenses: [],
+      settlements: [],
+      goals: [],
+      goalContributions: [],
+    };
     document.querySelector("#session-email").hidden = true;
     document.querySelector("#logout-button").hidden = true;
+    document.querySelector(".dashboard-user-actions").hidden = true;
     document.querySelector("#offline-note").hidden = false;
     document.querySelector("#demo-notice").hidden = true;
     if (supabaseRepository) {
@@ -847,6 +882,7 @@ function listenForAuthChanges() {
       workspaceRequest += 1;
       document.querySelector("#session-email").hidden = true;
       document.querySelector("#logout-button").hidden = true;
+      document.querySelector(".dashboard-user-actions").hidden = true;
       document.querySelector("#offline-note").hidden = false;
       showView("auth-view");
       return;

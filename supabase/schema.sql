@@ -56,6 +56,18 @@ create table public.goals (
   created_at timestamptz not null default now()
 );
 
+create table public.goal_contributions (
+  id uuid primary key default gen_random_uuid(),
+  wallet_id uuid not null references public.wallets(id) on delete cascade,
+  goal_id uuid not null references public.goals(id) on delete cascade,
+  contributor_id uuid not null references auth.users(id),
+  amount numeric(14, 2) not null check (amount > 0),
+  created_at timestamptz not null default now()
+);
+
+create index goal_contributions_wallet_created_at
+  on public.goal_contributions (wallet_id, created_at desc);
+
 create table public.wallet_invites (
   id uuid primary key default gen_random_uuid(),
   wallet_id uuid not null references public.wallets(id) on delete cascade,
@@ -250,6 +262,9 @@ begin
   update public.goals
   set current_amount = current_amount + p_amount
   where id = p_goal_id;
+
+  insert into public.goal_contributions (wallet_id, goal_id, contributor_id, amount)
+  values (p_wallet_id, p_goal_id, auth.uid(), p_amount);
 end;
 $$;
 
@@ -593,6 +608,7 @@ alter table public.incomes enable row level security;
 alter table public.expenses enable row level security;
 alter table public.settlements enable row level security;
 alter table public.goals enable row level security;
+alter table public.goal_contributions enable row level security;
 alter table public.wallet_invites enable row level security;
 
 create policy "Members can read their wallets"
@@ -630,6 +646,9 @@ create policy "Members can read settlements"
 create policy "Members can read goals"
   on public.goals for select to authenticated
   using (public.is_wallet_member(wallet_id));
+create policy "Members can read goal contributions"
+  on public.goal_contributions for select to authenticated
+  using (public.is_wallet_member(wallet_id));
 create policy "Members can create goals"
   on public.goals for insert to authenticated
   with check (
@@ -637,10 +656,10 @@ create policy "Members can create goals"
     and current_amount = 0
   );
 
-revoke all on public.wallets, public.wallet_members, public.incomes, public.expenses, public.settlements, public.goals, public.wallet_invites
+revoke all on public.wallets, public.wallet_members, public.incomes, public.expenses, public.settlements, public.goals, public.goal_contributions, public.wallet_invites
   from anon, authenticated;
 
-grant select on public.wallets, public.wallet_members, public.incomes, public.expenses, public.settlements, public.goals to authenticated;
+grant select on public.wallets, public.wallet_members, public.incomes, public.expenses, public.settlements, public.goals, public.goal_contributions to authenticated;
 grant insert on public.incomes to authenticated;
 grant insert on public.goals to authenticated;
 

@@ -32,6 +32,22 @@ export function createDemoState(now = Date.now()) {
         created_at: dateDaysAgo(5),
       },
     ],
+    goalContributions: [
+      {
+        id: "demo-goal-contribution-1",
+        goal_id: "demo-goal-1",
+        contributor_id: firstMemberId,
+        amount: 180000,
+        created_at: dateDaysAgo(1),
+      },
+      {
+        id: "demo-goal-contribution-2",
+        goal_id: "demo-goal-1",
+        contributor_id: secondMemberId,
+        amount: 120000,
+        created_at: dateDaysAgo(1),
+      },
+    ],
   };
 }
 
@@ -56,6 +72,7 @@ export function createDemoStorage(storage) {
     return {
       ...data,
       settlements: Array.isArray(data.settlements) ? data.settlements : [],
+      goalContributions: Array.isArray(data.goalContributions) ? data.goalContributions : [],
       user: { id: "demo-member-1", email: "Demo local" },
       memberIndex: 1,
     };
@@ -71,6 +88,7 @@ export function createDemoStorage(storage) {
         expenses: state.expenses,
         settlements: state.settlements || [],
         goals: state.goals,
+        goalContributions: state.goalContributions || [],
       }));
     },
     isActive() {

@@ -31,13 +31,15 @@ export function createSupabaseRepository(client) {
       client.from("expenses").select("id, author_id, description, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       client.from("settlements").select("id, payer_id, receiver_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       client.from("goals").select("id, title, target_amount, target_date, current_amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: true }),
+      client.from("goal_contributions").select("id, goal_id, contributor_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
     ]);
 
     for (const result of results) {
       if (result.error) throw result.error;
     }
 
-    const [wallet, members, incomes, expenses, settlements, goals] = results.map((result) => result.data);
+    const [wallet, members, incomes, expenses, settlements, goals, goalContributions] =
+      results.map((result) => result.data);
     return {
       wallet,
       memberIndex: membershipResult.data.member_index,
@@ -46,6 +48,7 @@ export function createSupabaseRepository(client) {
       expenses,
       settlements,
       goals,
+      goalContributions,
     };
   }
 

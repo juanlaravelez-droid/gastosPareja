@@ -18,6 +18,7 @@ test("creates deterministic demo data when a timestamp is provided", () => {
   assert.deepEqual(first, second);
   assert.equal(first.members.length, 2);
   assert.equal(first.incomes.length, 2);
+  assert.equal(first.goalContributions.reduce((total, item) => total + item.amount, 0), 300000);
 });
 
 test("persists demo records and restores the demo identity", () => {
@@ -33,9 +34,20 @@ test("persists demo records and restores the demo identity", () => {
   assert.equal(restored.user.id, "demo-member-1");
   assert.equal(restored.wallet.id, state.wallet.id);
   assert.deepEqual(restored.goals, state.goals);
+  assert.deepEqual(restored.goalContributions, state.goalContributions);
 
   demoStorage.setActive(false);
   assert.equal(demoStorage.isActive(), false);
+});
+
+test("keeps historical goal savings unattributed when restoring older demo data", () => {
+  const storage = createMemoryStorage();
+  const demoStorage = createDemoStorage(storage);
+  const state = createDemoState(1_800_000_000_000);
+  delete state.goalContributions;
+  storage.setItem("billetera-demo-state-v1", JSON.stringify(state));
+
+  assert.deepEqual(demoStorage.readDemoState().goalContributions, []);
 });
 
 test("rejects malformed saved JSON and incomplete demo state", () => {

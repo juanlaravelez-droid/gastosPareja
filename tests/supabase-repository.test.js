@@ -12,6 +12,7 @@ function createWorkspaceClient() {
     expenses: [],
     settlements: [],
     goals: [],
+    goal_contributions: [{ id: "contribution-1", goal_id: "goal-1", contributor_id: "user-1", amount: 25 }],
   };
 
   return {
@@ -68,6 +69,7 @@ test("loads wallet records through the repository and maps workspace state", asy
     expenses: [],
     settlements: [],
     goals: [],
+    goalContributions: [{ id: "contribution-1", goal_id: "goal-1", contributor_id: "user-1", amount: 25 }],
   });
   assert.ok(client.calls.some((call) => call.kind === "eq" && call.column === "user_id" && call.value === "user-1"));
 });

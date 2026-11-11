@@ -1,4 +1,9 @@
-import { getDashboardSummary, getGoalSummary, getWalletSummary } from "../application/wallet-service.js";
+import {
+  getDashboardSummary,
+  getGoalSummary,
+  getSavingsContributionSummary,
+  getWalletSummary,
+} from "../application/wallet-service.js?v=2";
 
 function getExpenseCategory(description = "") {
   const text = description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -27,6 +32,7 @@ function getExpenseCategory(description = "") {
 }
 
 export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHtml, dashboardView }) {
+  let selectedGoalId = null;
   const dateFormatter = new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -122,6 +128,100 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
       </article>
     `;
     }).join("");
+  }
+
+  function renderSavingsOverview(state) {
+    const overview = document.querySelector("[data-savings-overview]");
+    if (!state.goals.length) {
+      selectedGoalId = null;
+      overview.hidden = true;
+      return;
+    }
+
+    let activeGoal = state.goals.find((goal) => goal.id === selectedGoalId);
+    if (!activeGoal) {
+      activeGoal = state.goals.find((goal) =>
+        Number(goal.current_amount) < Number(goal.target_amount)) || state.goals[0];
+      selectedGoalId = activeGoal.id;
+    }
+
+    const memberOneName = state.wallet.nombre_miembro1;
+    const memberTwoName = state.wallet.nombre_miembro2;
+    const contributionSummary = getSavingsContributionSummary(
+      activeGoal,
+      state.goalContributions || [],
+      state.members,
+    );
+    const goalSummary = getGoalSummary(activeGoal, getTodayDateInput());
+    const memberOne = contributionSummary.memberAmounts.find((member) => member.memberIndex === 1);
+    const memberTwo = contributionSummary.memberAmounts.find((member) => member.memberIndex === 2);
+    const monthlyMemberOne = contributionSummary.monthlyAmounts.find((member) => member.memberIndex === 1);
+    const monthlyMemberTwo = contributionSummary.monthlyAmounts.find((member) => member.memberIndex === 2);
+    const targetAmount = Number(activeGoal.target_amount);
+    const segmentOne = targetAmount > 0 ? Math.min(100, (memberOne?.amount || 0) / targetAmount * 100) : 0;
+    const segmentTwo = targetAmount > 0 ? Math.min(100, (memberTwo?.amount || 0) / targetAmount * 100) : 0;
+    const unattributed = targetAmount > 0
+      ? Math.min(100, contributionSummary.unattributedAmount / targetAmount * 100)
+      : 0;
+
+    overview.hidden = false;
+    document.querySelector("[data-active-goal-title]").textContent = activeGoal.title;
+    document.querySelector("[data-active-goal-total]").textContent = formatCurrency(Number(activeGoal.current_amount));
+    document.querySelector("[data-active-goal-target]").textContent = formatCurrency(targetAmount);
+    document.querySelector("[data-active-goal-percent]").textContent = `${goalSummary.progress}% completado`;
+
+    const progressTrack = document.querySelector("[data-active-goal-progress]");
+    progressTrack.setAttribute("aria-label", `Progreso de ${activeGoal.title}`);
+    progressTrack.setAttribute("aria-valuenow", String(goalSummary.progress));
+    progressTrack.querySelector('[data-goal-segment="one"]').style.width = `${segmentOne}%`;
+    progressTrack.querySelector('[data-goal-segment="two"]').style.width = `${segmentTwo}%`;
+    progressTrack.querySelector('[data-goal-segment="unattributed"]').style.width = `${unattributed}%`;
+
+    document.querySelector('[data-goal-member-name="one"]').textContent = memberOneName;
+    document.querySelector('[data-goal-member-name="two"]').textContent = memberTwoName;
+    document.querySelector('[data-goal-member-amount="one"]').textContent = formatCurrency(memberOne?.amount || 0);
+    document.querySelector('[data-goal-member-amount="two"]').textContent = formatCurrency(memberTwo?.amount || 0);
+    document.querySelector('[data-goal-member-percent="one"]').textContent =
+      `${memberOne?.goalPercentage || 0}% de la meta`;
+    document.querySelector('[data-goal-member-percent="two"]').textContent =
+      `${memberTwo?.goalPercentage || 0}% de la meta`;
+
+    const unattributedNote = document.querySelector("[data-goal-unattributed]");
+    unattributedNote.hidden = contributionSummary.unattributedAmount <= 0;
+    unattributedNote.textContent = contributionSummary.unattributedAmount > 0
+      ? `${formatCurrency(contributionSummary.unattributedAmount)} ahorrados antes de activar el desglose por integrante.`
+      : "";
+
+    const now = new Date();
+    document.querySelector("[data-savings-month]").textContent = new Intl.DateTimeFormat("es-CO", {
+      month: "long",
+      year: "numeric",
+    }).format(now);
+    document.querySelector('[data-monthly-member-name="one"]').textContent = memberOneName;
+    document.querySelector('[data-monthly-member-name="two"]').textContent = memberTwoName;
+    document.querySelector('[data-monthly-member-amount="one"]').textContent =
+      formatCurrency(monthlyMemberOne?.amount || 0);
+    document.querySelector('[data-monthly-member-amount="two"]').textContent =
+      formatCurrency(monthlyMemberTwo?.amount || 0);
+    const monthlyMaximum = Math.max(monthlyMemberOne?.amount || 0, monthlyMemberTwo?.amount || 0);
+    document.querySelector('[data-monthly-member-bar="one"]').style.width =
+      `${monthlyMaximum ? (monthlyMemberOne?.amount || 0) / monthlyMaximum * 100 : 0}%`;
+    document.querySelector('[data-monthly-member-bar="two"]').style.width =
+      `${monthlyMaximum ? (monthlyMemberTwo?.amount || 0) / monthlyMaximum * 100 : 0}%`;
+    document.querySelector("[data-monthly-quota-status]").textContent =
+      "Aún no han configurado una cuota mensual compartida.";
+
+    const otherGoals = state.goals.filter((goal) => goal.id !== activeGoal.id);
+    const goalSelector = document.querySelector("[data-goal-selector]");
+    goalSelector.innerHTML = otherGoals.map((goal) => {
+      const { progress } = getGoalSummary(goal, getTodayDateInput());
+      return `<button class="goal-selector-card" type="button" data-select-goal="${escapeHtml(goal.id)}">
+        <span>${escapeHtml(goal.title)}</span>
+        <strong>${progress}%</strong>
+        <small>${formatCurrency(Number(goal.current_amount))} de ${formatCurrency(Number(goal.target_amount))}</small>
+      </button>`;
+    }).join("");
+    goalSelector.closest(".secondary-goals").hidden = otherGoals.length === 0;
   }
 
   function renderIncomes(state) {
@@ -269,6 +369,7 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     document.querySelector("#expense-count").textContent = `${state.expenses.length} ${state.expenses.length === 1 ? "gasto" : "gastos"}`;
 
     document.querySelector("#goals-list").innerHTML = renderGoals(state);
+    renderSavingsOverview(state);
     document.querySelector("#income-list").innerHTML = renderIncomes(state);
     document.querySelector("#expense-list").innerHTML = renderExpenses(state);
 
@@ -277,6 +378,13 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     document.querySelector("#expense-empty").hidden = state.expenses.length > 0;
     document.querySelector("#invite-panel").hidden = getDemoMode() || state.members.length >= 2;
   }
+
+  document.querySelector("[data-goal-selector]").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-select-goal]");
+    if (!button) return;
+    selectedGoalId = button.dataset.selectGoal;
+    renderApp();
+  });
 
   return { renderApp };
 }

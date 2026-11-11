@@ -26,6 +26,57 @@ export function getGoalSummary(goal, today = new Date().toISOString().slice(0, 1
   };
 }
 
+export function getSavingsContributionSummary(
+  goal,
+  goalContributions,
+  members,
+  now = new Date(),
+) {
+  const memberAmounts = members
+    .map((member) => {
+      const amount = goalContributions
+        .filter((contribution) =>
+          contribution.goal_id === goal.id && contribution.contributor_id === member.user_id)
+        .reduce((total, contribution) => total + Number(contribution.amount), 0);
+      return {
+        userId: member.user_id,
+        memberIndex: member.member_index,
+        amount,
+        goalPercentage: Number(goal.target_amount) > 0
+          ? Math.min(100, Math.round((amount / Number(goal.target_amount)) * 100))
+          : 0,
+      };
+    })
+    .sort((first, second) => first.memberIndex - second.memberIndex);
+
+  const trackedAmount = memberAmounts.reduce((total, member) => total + member.amount, 0);
+  const monthlyAmounts = members
+    .map((member) => ({
+      userId: member.user_id,
+      memberIndex: member.member_index,
+      amount: goalContributions
+        .filter((contribution) => {
+          const createdAt = new Date(contribution.created_at);
+          return contribution.contributor_id === member.user_id
+            && createdAt.getFullYear() === now.getFullYear()
+            && createdAt.getMonth() === now.getMonth();
+        })
+        .reduce((total, contribution) => total + Number(contribution.amount), 0),
+    }))
+    .sort((first, second) => first.memberIndex - second.memberIndex);
+  const currentAmount = Number(goal.current_amount);
+
+  return {
+    memberAmounts,
+    monthlyAmounts,
+    monthlyTotal: monthlyAmounts.reduce((total, member) => total + member.amount, 0),
+    unattributedAmount: Math.max(0, currentAmount - trackedAmount),
+    unattributedPercentage: Number(goal.target_amount) > 0
+      ? Math.min(100, Math.round((Math.max(0, currentAmount - trackedAmount) / Number(goal.target_amount)) * 100))
+      : 0,
+  };
+}
+
 export function getWalletSummary(state) {
   const contributions = state.members
     .map((member) => ({

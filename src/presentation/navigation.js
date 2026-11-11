@@ -182,7 +182,8 @@ export class AppNavigation {
 
   handleInitialRoute() {
     const hash = window.location.hash.replace('#', '');
-    const validView = Array.from(this.panels).find((panel) => panel.id === hash);
-    this.switchView(validView ? validView.id : 'view-balance');
+    const requestedView = hash === "view-stats" ? "view-goals" : hash;
+    const validView = Array.from(this.panels).find((panel) => panel.id === requestedView);
+    this.switchView(validView ? validView.id : "view-goals");
   }
 }
