@@ -218,6 +218,8 @@ async function loadWorkspace(user) {
 
     if (!workspace) {
       state = { ...state, wallet: null, memberIndex: null, members: [], incomes: [], expenses: [], settlements: [], goals: [] };
+      document.querySelector("#setup-title").textContent = "Crear billetera en pareja";
+      document.querySelector("#form-wallet").hidden = false;
       showView("setup-view");
       return false;
     }
@@ -231,8 +233,10 @@ async function loadWorkspace(user) {
     console.error("No se pudo cargar la billetera compartida.", error);
     if (requestId !== workspaceRequest) return false;
     showView("setup-view");
+    document.querySelector("#setup-title").textContent = "No se pudo cargar la billetera";
+    document.querySelector("#form-wallet").hidden = true;
     document.querySelector("#setup-message").textContent =
-      `No pudimos cargar los datos compartidos: ${getErrorMessage(error)}`;
+      `No pudimos cargar los datos compartidos. No crees otra billetera hasta resolverlo: ${getErrorMessage(error)}`;
     return false;
   }
 }
@@ -240,13 +244,36 @@ async function loadWorkspace(user) {
 async function handleLogin(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const email = String(new FormData(form).get("email") || "").trim().toLowerCase();
+  const formData = new FormData(form);
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("password") || "");
+  if (!email || !password) {
+    showFormMessage("#auth-message", "Escribe tu correo y contraseña.", true);
+    return;
+  }
+
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  showFormMessage("#auth-message", "Iniciando sesión...");
+  try {
+    const { error } = await supabaseRepository.signInWithPassword(email, password);
+    if (error) throw error;
+  } catch (error) {
+    console.error("No se pudo iniciar sesión con contraseña.", error);
+    showFormMessage("#auth-message", getErrorMessage(error), true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function handleMagicLink() {
+  const email = String(document.querySelector("#login-email").value || "").trim().toLowerCase();
   if (!email) {
     showFormMessage("#auth-message", "Escribe un correo electrónico válido.", true);
     return;
   }
 
-  const button = form.querySelector('button[type="submit"]');
+  const button = document.querySelector("[data-send-magic-link]");
   button.disabled = true;
   showFormMessage("#auth-message", "Enviando el enlace...");
   try {
@@ -790,6 +817,7 @@ function initializeEventHandlers() {
   appNavigation = new AppNavigation();
 
   document.querySelector("#form-login").addEventListener("submit", handleLogin);
+  document.querySelector("[data-send-magic-link]").addEventListener("click", handleMagicLink);
   document.querySelector("#form-wallet").addEventListener("submit", handleCreateWallet);
   document.querySelector("#form-nombres").addEventListener("submit", handleSaveNames);
   document.querySelector("#form-ingreso").addEventListener("submit", handleNewIncome);

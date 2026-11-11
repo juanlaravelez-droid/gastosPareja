@@ -56,6 +56,7 @@ export function createSupabaseRepository(client) {
       email,
       options: { emailRedirectTo: redirectTo },
     }),
+    signInWithPassword: (email, password) => client.auth.signInWithPassword({ email, password }),
     signOut: () => client.auth.signOut(),
     getWorkspace,
     createWallet: (nombre1, nombre2) => client.rpc("create_wallet", {

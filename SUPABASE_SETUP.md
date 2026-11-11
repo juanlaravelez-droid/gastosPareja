@@ -8,7 +8,7 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
 
 1. Crea un proyecto en [Supabase](https://supabase.com/) y espera a que la base de datos termine de inicializarse.
 2. En **SQL Editor**, ejecuta el contenido de `supabase/schema.sql`.
-   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. La migración `20261023000000_allow_income_author_selection.sql` permite atribuir los ingresos a cualquiera de los integrantes, `20261024000000_add_goal_target_date.sql` agrega una fecha objetivo opcional, y `20261025000000_manage_savings_goals.sql` habilita editar y eliminar metas de forma segura.
+   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. Las migraciones anteriores habilitan la atribución de ingresos y la administración de metas. La migración `20261109000000_add_settlements.sql` agrega el registro de liquidaciones y los permisos requeridos por la versión actual de la app; aplícala en **SQL Editor** si aún no la ejecutaste.
 3. En **Project Settings → API**, copia la URL del proyecto y la clave publicable (o la clave `anon` heredada).
 4. Pega esos valores en `supabase-config.example.js`:
 
@@ -20,6 +20,8 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
    La clave publicable está diseñada para estar en el navegador; las políticas RLS del esquema protegen la información. No publiques una clave `service_role`.
 
 ## 2. Configurar enlaces mágicos y correo
+
+En **Authentication → Providers → Email**, habilita el proveedor Email para permitir acceso con correo y contraseña. La app permite iniciar sesión con contraseña o solicitar un enlace mágico. Esto no crea una contraseña automáticamente para cuentas existentes: cada usuario debe establecerla mediante el flujo de recuperación de Supabase, que envía un correo. Si el límite de envío está activo, espera a que se restablezca o configura SMTP propio antes de pedir el correo de recuperación. No compartan una contraseña entre integrantes.
 
 En **Authentication → URL Configuration**, agrega a **Redirect URLs** la URL donde se servirá la app, incluyendo el origen local `http://localhost:8000/**` durante desarrollo. Configura también **Site URL** con la URL de producción.
 

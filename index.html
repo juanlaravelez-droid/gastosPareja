@@ -52,13 +52,18 @@
         <img class="auth-logo" src="img/logo.jpeg" alt="Dúo, finanzas en pareja">
         <div class="access-badge">Acceso seguro</div>
         <h1 id="auth-title">Entren a su billetera</h1>
-        <p class="panel-intro">Escriban su correo electrónico y les enviaremos un enlace mágico de acceso directo sin contraseñas.</p>
+        <p class="panel-intro">Inicien sesión con su correo y contraseña. También pueden pedir un enlace mágico al correo.</p>
         <form id="form-login" class="stacked-form" novalidate>
           <label>
             <span class="label-text">Correo electrónico</span>
             <input id="login-email" name="email" type="email" autocomplete="email" placeholder="ustedes@correo.com" required>
           </label>
-          <button class="button button-primary button-full" type="submit">Enviar enlace de acceso <span aria-hidden="true">→</span></button>
+          <label>
+            <span class="label-text">Contraseña</span>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+          </label>
+          <button class="button button-primary button-full" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
+          <button class="button button-secondary button-full" type="button" data-send-magic-link>Enviar enlace mágico al correo</button>
         </form>
         <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
         <div class="demo-entry">

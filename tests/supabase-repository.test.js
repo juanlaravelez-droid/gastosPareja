@@ -72,6 +72,23 @@ test("loads wallet records through the repository and maps workspace state", asy
   assert.ok(client.calls.some((call) => call.kind === "eq" && call.column === "user_id" && call.value === "user-1"));
 });
 
+test("maps email and password sign-in to Supabase Auth", async () => {
+  const calls = [];
+  const repository = createSupabaseRepository({
+    auth: {
+      signInWithPassword: async (credentials) => {
+        calls.push(credentials);
+        return { data: { user: { id: "user-1" } }, error: null };
+      },
+    },
+  });
+
+  const result = await repository.signInWithPassword("ana@example.com", "secure-password");
+
+  assert.deepEqual(calls, [{ email: "ana@example.com", password: "secure-password" }]);
+  assert.equal(result.data.user.id, "user-1");
+});
+
 test("maps goal update arguments to the existing database RPC", async () => {
   const calls = [];
   const repository = createSupabaseRepository({
