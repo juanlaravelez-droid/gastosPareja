@@ -6,6 +6,11 @@ import {
   validateIncome,
 } from "./src/application/wallet-validation.js";
 import {
+  formatMonthlyQuotaInput,
+  getMonthlyQuotaProjection,
+  parseMonthlyQuota,
+} from "./src/application/monthly-quota.js?v=1";
+import {
   prepareGoalCover,
   readGoalCoverAsDataUrl,
 } from "./src/application/goal-cover.js?v=2";
@@ -17,7 +22,7 @@ import { createDemoStorage } from "./src/infrastructure/demo-storage.js?v=2";
 import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js?v=3";
 import { addExpense, deleteExpense } from "./src/application/expense-service.js?v=2";
 import { createStorageRepository } from "./src/infrastructure/storage-repository.js?v=1";
-import { createRenderer } from "./src/presentation/render.js?v=5";
+import { createRenderer } from "./src/presentation/render.js?v=6";
 import { createUi } from "./src/presentation/ui.js?v=4";
 import { ThemeToggle } from "./src/presentation/components/ThemeToggle.js?v=2";
 import { AppNavigation } from "./src/presentation/navigation.js?v=2";
@@ -69,6 +74,110 @@ const { renderApp } = createRenderer({
 
 function getPrimaryGoalStorageKey(walletId) {
   return `duobalance-primary-goal-${walletId}`;
+}
+
+function getMonthlyQuotaStorageKey(walletId) {
+  return `duobalance-monthly-quota-${walletId}`;
+}
+
+function readMonthlyQuota(walletId) {
+  try {
+    const stored = storageRepository.getItem(getMonthlyQuotaStorageKey(walletId));
+    if (!stored) return null;
+    const value = JSON.parse(stored);
+    if (
+      Number.isSafeInteger(value?.monthlyQuota?.juan)
+      && value.monthlyQuota.juan >= 0
+      && Number.isSafeInteger(value.monthlyQuota.isa)
+      && value.monthlyQuota.isa >= 0
+      && value.monthlyQuota.juan + value.monthlyQuota.isa > 0
+    ) {
+      return value;
+    }
+    throw new Error("La configuración de cuotas mensuales guardada no es válida.");
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      console.error("No se pudo interpretar la configuración de cuotas mensuales.", error);
+    } else if (error.message !== "La configuración de cuotas mensuales guardada no es válida.") {
+      console.error("No se pudo leer la configuración de cuotas mensuales.", error);
+    } else {
+      console.error(error.message, error);
+    }
+    notify("No se pudieron cargar las cuotas mensuales guardadas.", true);
+    return null;
+  }
+}
+
+function openMonthlyQuotaDialog() {
+  const form = document.querySelector("#form-monthly-quota");
+  const quota = state.monthlyQuota?.monthlyQuota;
+  form.elements.namedItem("juan").value = quota ? formatMonthlyQuotaInput(quota.juan) : "";
+  form.elements.namedItem("isa").value = quota ? formatMonthlyQuotaInput(quota.isa) : "";
+  document.querySelector('[data-quota-member-name="one"]').textContent = state.wallet.nombre_miembro1;
+  document.querySelector('[data-quota-member-name="two"]').textContent = state.wallet.nombre_miembro2;
+  document.querySelector("[data-monthly-quota-error]").hidden = true;
+  updateMonthlyQuotaTotal();
+  document.querySelector("#monthly-quota-dialog").showModal();
+  form.elements.namedItem("juan").focus();
+}
+
+function updateMonthlyQuotaTotal() {
+  const form = document.querySelector("#form-monthly-quota");
+  const first = parseMonthlyQuota(form.elements.namedItem("juan").value);
+  const second = parseMonthlyQuota(form.elements.namedItem("isa").value);
+  const total = (first || 0) + (second || 0);
+  document.querySelector("[data-monthly-quota-total]").textContent =
+    `${formatCurrency(total)}/mes`;
+}
+
+function formatMonthlyQuotaField(input) {
+  const formatted = formatMonthlyQuotaInput(input.value);
+  const cursorFromEnd = input.value.length - input.selectionStart;
+  input.value = formatted;
+  const nextPosition = Math.max(0, formatted.length - cursorFromEnd);
+  input.setSelectionRange(nextPosition, nextPosition);
+  updateMonthlyQuotaTotal();
+}
+
+function handleSaveMonthlyQuota(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const juan = parseMonthlyQuota(form.elements.namedItem("juan").value);
+  const isa = parseMonthlyQuota(form.elements.namedItem("isa").value);
+  const error = document.querySelector("[data-monthly-quota-error]");
+  if (juan === null || isa === null) {
+    error.textContent = "Ingresa montos válidos dentro del límite permitido.";
+    error.hidden = false;
+    return;
+  }
+  if (!Number.isSafeInteger(juan + isa)) {
+    error.textContent = "La suma de las cuotas supera el monto máximo permitido.";
+    error.hidden = false;
+    return;
+  }
+  if (juan + isa === 0) {
+    error.textContent = "El total de las cuotas debe ser mayor que cero.";
+    error.hidden = false;
+    return;
+  }
+
+  const quotaState = { monthlyQuota: { juan, isa } };
+  try {
+    storageRepository.setItem(
+      getMonthlyQuotaStorageKey(state.wallet.id),
+      JSON.stringify(quotaState),
+    );
+  } catch (storageError) {
+    console.error("No se pudieron guardar las cuotas mensuales.", storageError);
+    error.textContent = "No se pudieron guardar las cuotas en este dispositivo. Libera espacio e inténtalo de nuevo.";
+    error.hidden = false;
+    return;
+  }
+
+  state.monthlyQuota = quotaState;
+  renderApp();
+  document.querySelector("#monthly-quota-dialog").close();
+  notify("Cuotas mensuales guardadas.");
 }
 
 function savePrimaryGoal(goalId) {
@@ -455,6 +564,7 @@ function startDemo() {
   try {
     state = demoStorage.readDemoState();
     state.primaryGoalId = loadPrimaryGoal(state.wallet.id, state.goals);
+    state.monthlyQuota = readMonthlyQuota(state.wallet.id);
     demoMode = true;
     if (!saveDemoState()) {
       demoMode = false;
@@ -477,6 +587,7 @@ function restoreDemoSession() {
     if (!demoStorage.isActive()) return false;
     state = demoStorage.readDemoState();
     state.primaryGoalId = loadPrimaryGoal(state.wallet.id, state.goals);
+    state.monthlyQuota = readMonthlyQuota(state.wallet.id);
     demoMode = true;
     setDemoHeader(true);
     renderApp();
@@ -520,6 +631,7 @@ async function loadWorkspace(user) {
         goalContributions: [],
       };
       state.primaryGoalId = null;
+      state.monthlyQuota = null;
       document.querySelector('#form-wallet [name="miembro1"]').value =
         String(user.user_metadata?.display_name || "").trim();
       document.querySelector("#setup-title").textContent = "Crear billetera en pareja";
@@ -530,6 +642,7 @@ async function loadWorkspace(user) {
 
     state = { user, ...workspace };
     state.primaryGoalId = loadPrimaryGoal(state.wallet.id, state.goals);
+    state.monthlyQuota = readMonthlyQuota(state.wallet.id);
     renderApp();
     showRandomTip();
     showView("dashboard");
@@ -1302,6 +1415,21 @@ function initializeEventHandlers() {
   document.querySelector("#form-edit-goal").addEventListener("submit", (event) => {
     event.preventDefault();
     void handleUpdateGoal(event.currentTarget);
+  });
+  document.querySelector("#form-monthly-quota").addEventListener("submit", handleSaveMonthlyQuota);
+  document.querySelectorAll('#form-monthly-quota input[inputmode="numeric"]').forEach((input) => {
+    input.addEventListener("input", () => formatMonthlyQuotaField(input));
+  });
+  document.querySelectorAll("[data-open-monthly-quota]").forEach((button) => {
+    button.addEventListener("click", openMonthlyQuotaDialog);
+  });
+  document.querySelectorAll("[data-close-monthly-quota]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelector("#monthly-quota-dialog").close();
+    });
+  });
+  document.querySelector("#monthly-quota-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
   });
   document.querySelector('#form-edit-goal [name="montoObjetivo"]').addEventListener("input", () => {
     updateGoalEditorProgress();

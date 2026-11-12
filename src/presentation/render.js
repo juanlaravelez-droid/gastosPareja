@@ -5,6 +5,7 @@ import {
   getSavingsContributionSummary,
   getWalletSummary,
 } from "../application/wallet-service.js?v=3";
+import { getMonthlyQuotaProjection } from "../application/monthly-quota.js?v=1";
 
 function getExpenseCategory(description = "") {
   const text = description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -204,17 +205,49 @@ export function createRenderer({
     }).format(now);
     document.querySelector('[data-monthly-member-name="one"]').textContent = memberOneName;
     document.querySelector('[data-monthly-member-name="two"]').textContent = memberTwoName;
-    document.querySelector('[data-monthly-member-amount="one"]').textContent =
-      formatCurrency(monthlyMemberOne?.amount || 0);
-    document.querySelector('[data-monthly-member-amount="two"]').textContent =
-      formatCurrency(monthlyMemberTwo?.amount || 0);
+    const monthlyQuota = state.monthlyQuota?.monthlyQuota;
+    const hasMonthlyQuota = Boolean(monthlyQuota && monthlyQuota.juan + monthlyQuota.isa > 0);
     const monthlyMaximum = Math.max(monthlyMemberOne?.amount || 0, monthlyMemberTwo?.amount || 0);
-    document.querySelector('[data-monthly-member-bar="one"]').style.width =
-      `${monthlyMaximum ? (monthlyMemberOne?.amount || 0) / monthlyMaximum * 100 : 0}%`;
-    document.querySelector('[data-monthly-member-bar="two"]').style.width =
-      `${monthlyMaximum ? (monthlyMemberTwo?.amount || 0) / monthlyMaximum * 100 : 0}%`;
-    document.querySelector("[data-monthly-quota-status]").textContent =
-      "Aún no han configurado una cuota mensual compartida.";
+    const monthlyMemberRows = [
+      { member: monthlyMemberOne, quota: monthlyQuota?.juan || 0, key: "one" },
+      { member: monthlyMemberTwo, quota: monthlyQuota?.isa || 0, key: "two" },
+    ];
+    for (const { member, quota, key } of monthlyMemberRows) {
+      const amount = member?.amount || 0;
+      const progress = hasMonthlyQuota
+        ? quota > 0 ? Math.min(100, amount / quota * 100) : 0
+        : monthlyMaximum ? amount / monthlyMaximum * 100 : 0;
+      document.querySelector(`[data-monthly-member-amount="${key}"]`).textContent =
+        hasMonthlyQuota
+          ? `${formatCurrency(amount)} de ${formatCurrency(quota)}`
+          : formatCurrency(amount);
+      const progressBar = document.querySelector(`[data-monthly-member-bar="${key}"]`);
+      progressBar.style.width = `${progress}%`;
+      progressBar.parentElement.setAttribute("role", "progressbar");
+      progressBar.parentElement.setAttribute("aria-label", hasMonthlyQuota
+        ? `Aportes de ${key === "one" ? memberOneName : memberTwoName}: ${formatCurrency(amount)} de ${formatCurrency(quota)}`
+        : `Aportes del mes de ${key === "one" ? memberOneName : memberTwoName}`);
+      progressBar.parentElement.setAttribute("aria-valuemin", "0");
+      progressBar.parentElement.setAttribute("aria-valuemax", "100");
+      progressBar.parentElement.setAttribute("aria-valuenow", String(Math.round(progress)));
+    }
+
+    const quotaStatus = document.querySelector("[data-monthly-quota-status]");
+    quotaStatus.querySelector("[data-open-monthly-quota]").hidden = hasMonthlyQuota;
+    document.querySelector("[data-open-monthly-quota].monthly-quota-edit").hidden = !hasMonthlyQuota;
+    const projectionElement = document.querySelector("[data-monthly-quota-projection]");
+    projectionElement.hidden = !hasMonthlyQuota;
+    if (hasMonthlyQuota) {
+      const projection = getMonthlyQuotaProjection(activeGoal, monthlyQuota);
+      const monthlyTotal = monthlyQuota.juan + monthlyQuota.isa;
+      projectionElement.textContent = projection.complete
+        ? "¡Meta principal completada!"
+        : `Al ritmo de ${formatCurrency(monthlyTotal)}/mes, completan ${activeGoal.title} en ${
+          new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeric" }).format(projection.date)
+        }.`;
+    } else {
+      projectionElement.textContent = "";
+    }
 
     const otherGoals = state.goals.filter((goal) => goal.id !== activeGoal.id);
     const goalSelector = document.querySelector("[data-goal-selector]");

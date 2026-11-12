@@ -1,4 +1,4 @@
-const CACHE_NAME = "duobalance-shell-v8";
+const CACHE_NAME = "duobalance-shell-v9";
 const CORE_ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -13,6 +13,7 @@ const CORE_ASSETS = [
   "./src/application/wallet-validation.js",
   "./src/application/wallet-service.js",
   "./src/application/goal-cover.js",
+  "./src/application/monthly-quota.js",
   "./src/application/expense-service.js",
   "./src/presentation/formatCurrency.js",
   "./src/presentation/render.js",

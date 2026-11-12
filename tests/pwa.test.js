@@ -153,3 +153,24 @@ test("renders secondary goals as a compact carousel and supports primary promoti
   assert.match(app, /scrollIntoView\(\{ behavior: "smooth"/);
   assert.match(themeToggle, /isLight \? "#e3eee6"/);
 });
+
+test("provides monthly savings quota setup and progress UI", async () => {
+  const html = await readFile(path.join(root, "index.html"), "utf8");
+  const renderer = await readFile(path.join(root, "src/presentation/render.js"), "utf8");
+  const app = await readFile(path.join(root, "app.js"), "utf8");
+  const worker = await readFile(path.join(root, "sw.js"), "utf8");
+  const quota = await readFile(path.join(root, "src/application/monthly-quota.js"), "utf8");
+
+  assert.match(html, /Configurar cuotas mensuales/);
+  assert.match(html, /id="monthly-quota-dialog"/);
+  assert.match(html, /name="juan" type="text" inputmode="numeric"/);
+  assert.match(html, /name="isa" type="text" inputmode="numeric"/);
+  assert.match(html, /data-monthly-quota-total/);
+  assert.match(html, /data-monthly-quota-projection/);
+  assert.match(renderer, /data-monthly-quota-projection/);
+  assert.match(renderer, /Al ritmo de/);
+  assert.match(app, /monthlyQuota: \{ juan, isa \}/);
+  assert.match(app, /duobalance-monthly-quota-/);
+  assert.match(worker, /"\.\/src\/application\/monthly-quota\.js"/);
+  assert.match(quota, /Math\.ceil\(remaining \/ monthlyTotal\)/);
+});

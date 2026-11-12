@@ -14,8 +14,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=26">
-    <script type="module" src="app.js?v=22"></script>
+    <link rel="stylesheet" href="styles.css?v=27">
+    <script type="module" src="app.js?v=23"></script>
   </head>
   <body>
     <div class="app-layout">
@@ -201,12 +201,18 @@
                 <div class="goal-selector" data-goal-selector role="group" aria-label="Seleccionar meta"></div>
               </section>
               <section class="monthly-savings-card" aria-labelledby="monthly-savings-title">
-                <div class="panel-heading"><div><span class="eyebrow">APORTES DE ESTE MES</span><h2 id="monthly-savings-title">Cada aporte los acerca</h2></div><span class="monthly-savings-date" data-savings-month></span></div>
+                <div class="panel-heading">
+                  <div><span class="eyebrow">APORTES DE ESTE MES</span><h2 id="monthly-savings-title">Cada aporte los acerca</h2></div>
+                  <div class="monthly-savings-actions"><span class="monthly-savings-date" data-savings-month></span><button class="monthly-quota-edit" type="button" data-open-monthly-quota aria-label="Editar cuotas mensuales" title="Editar cuotas mensuales" hidden>✎</button></div>
+                </div>
                 <div class="monthly-member-grid">
                   <article class="monthly-member-card"><span data-monthly-member-name="one"></span><strong data-monthly-member-amount="one"></strong><span class="monthly-member-bar"><span data-monthly-member-bar="one"></span></span></article>
                   <article class="monthly-member-card"><span data-monthly-member-name="two"></span><strong data-monthly-member-amount="two"></strong><span class="monthly-member-bar"><span data-monthly-member-bar="two"></span></span></article>
                 </div>
-                <p class="monthly-quota-note" data-monthly-quota-status></p>
+                <p class="monthly-quota-note" data-monthly-quota-status>
+                  <button class="button button-outline button-small" type="button" data-open-monthly-quota>Configurar cuotas mensuales <span aria-hidden="true">→</span></button>
+                </p>
+                <p class="monthly-quota-projection" data-monthly-quota-projection hidden></p>
                 <div class="tip-card" aria-label="Recomendación de ahorro para la pareja">
                   <span class="tip-sparkle" aria-hidden="true">💡</span>
                   <span id="tip-category" class="eyebrow">UN TIP PARA USTEDES</span>
@@ -413,6 +419,22 @@
             <div class="app-dialog-actions">
               <button class="button button-outline" type="button" data-close-goal-editor>Cancelar</button>
               <button class="button button-primary" type="submit">Guardar cambios</button>
+            </div>
+          </form>
+        </dialog>
+        <dialog id="monthly-quota-dialog" class="app-dialog monthly-quota-dialog" aria-labelledby="monthly-quota-title">
+          <form id="form-monthly-quota" class="stacked-form" novalidate>
+            <header class="app-dialog-header">
+              <div><span class="eyebrow">AHORRO EN PAREJA</span><h2 id="monthly-quota-title">Configurar cuotas mensuales</h2></div>
+              <button class="dashboard-icon-button" type="button" data-close-monthly-quota aria-label="Cerrar">×</button>
+            </header>
+            <label><span class="label-text">Cuota mensual de <span data-quota-member-name="one">integrante 1</span></span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="juan" type="text" inputmode="numeric" autocomplete="off" placeholder="300.000" required></div></label>
+            <label><span class="label-text">Cuota mensual de <span data-quota-member-name="two">integrante 2</span></span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="isa" type="text" inputmode="numeric" autocomplete="off" placeholder="200.000" required></div></label>
+            <p class="monthly-quota-total" aria-live="polite">Total ahorro mensual en pareja: <strong data-monthly-quota-total>$0/mes</strong></p>
+            <p class="monthly-quota-error" data-monthly-quota-error role="alert" hidden></p>
+            <div class="app-dialog-actions">
+              <button class="button button-outline" type="button" data-close-monthly-quota>Cancelar</button>
+              <button class="button button-primary" type="submit">Guardar cuotas</button>
             </div>
           </form>
         </dialog>
