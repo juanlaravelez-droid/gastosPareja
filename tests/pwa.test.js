@@ -13,8 +13,8 @@ test("declares installable DuoBalance metadata and correctly sized icons", async
   assert.equal(manifest.short_name, "DuoBalance");
   assert.equal(manifest.start_url, "./index.html");
   assert.equal(manifest.display, "standalone");
-  assert.equal(manifest.background_color, "#F0FDF4");
-  assert.equal(manifest.theme_color, "#10B981");
+  assert.equal(manifest.background_color, "#111d35");
+  assert.equal(manifest.theme_color, "#111d35");
   assert.equal(manifest.orientation, "portrait");
 
   for (const icon of manifest.icons) {
@@ -50,7 +50,10 @@ test("provides PWA metadata and install controls in the page", async () => {
   const html = await readFile(path.join(root, "index.html"), "utf8");
 
   assert.match(html, /rel="manifest" href="\.\/manifest\.json"/);
+  assert.match(html, /name="viewport" content="width=device-width, initial-scale=1\.0, viewport-fit=cover"/);
+  assert.match(html, /name="theme-color" content="#111d35"/);
   assert.match(html, /name="apple-mobile-web-app-capable" content="yes"/);
+  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
   assert.match(html, /rel="apple-touch-icon" href="\.\/icons\/icon-192\.png"/);
   assert.match(html, /data-pwa-install/);
   assert.match(html, /Toca Compartir y luego “Agregar al inicio”/);

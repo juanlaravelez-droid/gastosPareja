@@ -2,11 +2,11 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#10B981">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#111d35">
     <meta name="description" content="DuoBalance: finanzas compartidas en pareja con gastos, aportes, metas y saldos netos.">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="DuoBalance">
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
@@ -109,6 +109,7 @@
         <div id="demo-notice" class="demo-notice" role="status" hidden>
           <span class="demo-badge">Modo Demo</span>
           <span>Están usando la demo local en este navegador. Los datos son privados e instantáneos.</span>
+          <button class="demo-notice-close" type="button" data-dismiss-demo-notice aria-label="Cerrar aviso de modo demo">×</button>
         </div>
         <div id="notification" class="notification" role="status" aria-live="polite" hidden></div>
 
@@ -155,9 +156,15 @@
             <header class="view-header"><span class="view-eyebrow">AHORRO EN PAREJA</span><h1 class="view-title">Metas de ahorro</h1></header>
             <section class="savings-overview" data-savings-overview aria-label="Resumen de ahorro" hidden>
               <article class="savings-hero-card" aria-labelledby="active-goal-title">
+                <img class="savings-hero-cover" data-active-goal-cover alt="" hidden>
                 <div class="savings-hero-heading">
                   <div><span class="eyebrow">META PRINCIPAL</span><h2 id="active-goal-title" data-active-goal-title></h2></div>
                   <span class="savings-hero-icon" aria-hidden="true">🎯</span>
+                </div>
+                <div class="goal-cover-actions">
+                  <button class="button button-outline button-small" type="button" data-change-goal-cover>Cambiar portada</button>
+                  <button class="button button-outline button-small" type="button" data-remove-goal-cover hidden>Quitar</button>
+                  <input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-goal-cover-input aria-label="Seleccionar foto para la portada de la meta">
                 </div>
                 <div class="savings-hero-amounts">
                   <strong data-active-goal-total></strong>
@@ -165,9 +172,9 @@
                   <span class="savings-hero-percent" data-active-goal-percent></span>
                 </div>
                 <div class="savings-segment-track" role="progressbar" data-active-goal-progress aria-valuemin="0" aria-valuemax="100">
+                  <span class="savings-segment savings-segment-unattributed" data-goal-segment="unattributed"></span>
                   <span class="savings-segment savings-segment-member-one" data-goal-segment="one"></span>
                   <span class="savings-segment savings-segment-member-two" data-goal-segment="two"></span>
-                  <span class="savings-segment savings-segment-unattributed" data-goal-segment="unattributed"></span>
                 </div>
                 <div class="savings-hero-members">
                   <div><span class="savings-member-dot savings-dot-one" aria-hidden="true"></span><span class="savings-member-info"><span data-goal-member-name="one"></span><small data-goal-member-percent="one"></small></span><strong data-goal-member-amount="one"></strong></div>

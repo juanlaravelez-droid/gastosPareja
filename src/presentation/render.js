@@ -1,5 +1,6 @@
 import {
   getDashboardSummary,
+  getGoalProgressSegments,
   getGoalSummary,
   getSavingsContributionSummary,
   getWalletSummary,
@@ -158,14 +159,27 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     const monthlyMemberOne = contributionSummary.monthlyAmounts.find((member) => member.memberIndex === 1);
     const monthlyMemberTwo = contributionSummary.monthlyAmounts.find((member) => member.memberIndex === 2);
     const targetAmount = Number(activeGoal.target_amount);
-    const segmentOne = targetAmount > 0 ? Math.min(100, (memberOne?.amount || 0) / targetAmount * 100) : 0;
-    const segmentTwo = targetAmount > 0 ? Math.min(100, (memberTwo?.amount || 0) / targetAmount * 100) : 0;
-    const unattributed = targetAmount > 0
-      ? Math.min(100, contributionSummary.unattributedAmount / targetAmount * 100)
-      : 0;
+    const progressSegments = getGoalProgressSegments(activeGoal, contributionSummary);
 
     overview.hidden = false;
     document.querySelector("[data-active-goal-title]").textContent = activeGoal.title;
+    const coverImage = document.querySelector("[data-active-goal-cover]");
+    const coverImageUrl = activeGoal.cover_image_url || "";
+    if (coverImageUrl) {
+      coverImage.src = coverImageUrl;
+      coverImage.hidden = false;
+    } else {
+      coverImage.removeAttribute("src");
+      coverImage.hidden = true;
+    }
+    coverImage.onerror = () => {
+      coverImage.hidden = true;
+      coverImage.removeAttribute("src");
+    };
+    document.querySelector("[data-goal-cover-input]").dataset.goalId = activeGoal.id;
+    const removeCoverButton = document.querySelector("[data-remove-goal-cover]");
+    removeCoverButton.dataset.goalId = activeGoal.id;
+    removeCoverButton.hidden = !coverImageUrl;
     document.querySelector("[data-active-goal-total]").textContent = formatCurrency(Number(activeGoal.current_amount));
     document.querySelector("[data-active-goal-target]").textContent = formatCurrency(targetAmount);
     document.querySelector("[data-active-goal-percent]").textContent = `${goalSummary.progress}% completado`;
@@ -173,9 +187,12 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     const progressTrack = document.querySelector("[data-active-goal-progress]");
     progressTrack.setAttribute("aria-label", `Progreso de ${activeGoal.title}`);
     progressTrack.setAttribute("aria-valuenow", String(goalSummary.progress));
-    progressTrack.querySelector('[data-goal-segment="one"]').style.width = `${segmentOne}%`;
-    progressTrack.querySelector('[data-goal-segment="two"]').style.width = `${segmentTwo}%`;
-    progressTrack.querySelector('[data-goal-segment="unattributed"]').style.width = `${unattributed}%`;
+    progressTrack.querySelector('[data-goal-segment="unattributed"]').style.width =
+      `${progressSegments.unattributed}%`;
+    progressTrack.querySelector('[data-goal-segment="one"]').style.width =
+      `${progressSegments.memberOne}%`;
+    progressTrack.querySelector('[data-goal-segment="two"]').style.width =
+      `${progressSegments.memberTwo}%`;
 
     document.querySelector('[data-goal-member-name="one"]').textContent = memberOneName;
     document.querySelector('[data-goal-member-name="two"]').textContent = memberTwoName;

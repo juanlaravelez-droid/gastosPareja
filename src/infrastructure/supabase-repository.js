@@ -30,7 +30,7 @@ export function createSupabaseRepository(client) {
       client.from("incomes").select("id, author_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       client.from("expenses").select("id, author_id, description, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
       client.from("settlements").select("id, payer_id, receiver_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
-      client.from("goals").select("id, title, target_amount, target_date, current_amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: true }),
+      client.from("goals").select("id, title, target_amount, target_date, current_amount, cover_image_path, created_at").eq("wallet_id", walletId).order("created_at", { ascending: true }),
       client.from("goal_contributions").select("id, goal_id, contributor_id, amount, created_at").eq("wallet_id", walletId).order("created_at", { ascending: false }),
     ]);
 
@@ -38,8 +38,16 @@ export function createSupabaseRepository(client) {
       if (result.error) throw result.error;
     }
 
-    const [wallet, members, incomes, expenses, settlements, goals, goalContributions] =
+    const [wallet, members, incomes, expenses, settlements, goalRows, goalContributions] =
       results.map((result) => result.data);
+    const goals = await Promise.all(goalRows.map(async (goal) => {
+      if (!goal.cover_image_path) return goal;
+      const { data, error } = await client.storage
+        .from("goal-covers")
+        .createSignedUrl(goal.cover_image_path, 60 * 60 * 24 * 7);
+      if (error) throw error;
+      return { ...goal, cover_image_url: data.signedUrl };
+    }));
     return {
       wallet,
       memberIndex: membershipResult.data.member_index,
@@ -103,6 +111,17 @@ export function createSupabaseRepository(client) {
       p_goal_id: goalId,
       p_amount: amount,
     }),
+    uploadGoalCover: (path, file) => client.storage.from("goal-covers").upload(path, file, {
+      cacheControl: "3600",
+      contentType: "image/jpeg",
+      upsert: false,
+    }),
+    setGoalCover: (walletId, goalId, path) => client.rpc("set_goal_cover", {
+      p_wallet_id: walletId,
+      p_goal_id: goalId,
+      p_cover_path: path,
+    }),
+    deleteGoalCoverFile: (path) => client.storage.from("goal-covers").remove([path]),
     deleteIncome: (walletId, incomeId) => client.rpc("delete_income", {
       p_wallet_id: walletId,
       p_income_id: incomeId,

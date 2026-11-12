@@ -26,6 +26,31 @@ export function getGoalSummary(goal, today = new Date().toISOString().slice(0, 1
   };
 }
 
+export function getGoalProgressSegments(goal, contributionSummary) {
+  const targetAmount = Number(goal.target_amount);
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+    return { unattributed: 0, memberOne: 0, memberTwo: 0 };
+  }
+
+  let remainingAmount = Math.min(
+    targetAmount,
+    Math.max(0, Number(goal.current_amount) || 0),
+  );
+  const takeAmount = (amount) => {
+    const allocated = Math.min(remainingAmount, Math.max(0, Number(amount) || 0));
+    remainingAmount -= allocated;
+    return allocated / targetAmount * 100;
+  };
+  const members = [...contributionSummary.memberAmounts]
+    .sort((first, second) => first.memberIndex - second.memberIndex);
+
+  return {
+    unattributed: takeAmount(contributionSummary.unattributedAmount),
+    memberOne: takeAmount(members.find((member) => member.memberIndex === 1)?.amount),
+    memberTwo: takeAmount(members.find((member) => member.memberIndex === 2)?.amount),
+  };
+}
+
 export function getSavingsContributionSummary(
   goal,
   goalContributions,

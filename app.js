@@ -6,6 +6,10 @@ import {
   validateIncome,
 } from "./src/application/wallet-validation.js";
 import {
+  prepareGoalCover,
+  readGoalCoverAsDataUrl,
+} from "./src/application/goal-cover.js?v=1";
+import {
   calculateAvailableBalance,
   getDashboardSummary,
 } from "./src/application/wallet-service.js?v=2";
@@ -24,6 +28,7 @@ let supabaseRepository;
 let appNavigation;
 const storageRepository = createStorageRepository();
 const demoStorage = createDemoStorage(storageRepository);
+const DEMO_BANNER_DISMISSED_KEY = "duo_dismiss_demo_banner";
 const expenseDeleteTimers = new WeakMap();
 let demoMode = false;
 let state = {
@@ -241,7 +246,40 @@ function setDemoHeader(enabled) {
     ? "Solo guardado en este navegador"
     : "Billetera compartida y privada";
   offlineNote.hidden = enabled;
-  document.querySelector("#demo-notice").hidden = !enabled;
+  const demoNotice = document.querySelector("#demo-notice");
+  if (!enabled || isDemoBannerDismissed()) {
+    demoNotice.hidden = true;
+  } else {
+    demoNotice.hidden = false;
+    demoNotice.classList.remove("is-dismissing");
+    demoNotice.removeAttribute("aria-hidden");
+  }
+}
+
+function isDemoBannerDismissed() {
+  try {
+    return storageRepository.getItem(DEMO_BANNER_DISMISSED_KEY) === "true";
+  } catch (error) {
+    console.error("No se pudo leer la preferencia del aviso de demo.", error);
+    notify("No se pudo leer la preferencia para ocultar el aviso de demo.", true);
+    return false;
+  }
+}
+
+function dismissDemoBanner() {
+  const demoNotice = document.querySelector("#demo-notice");
+  try {
+    storageRepository.setItem(DEMO_BANNER_DISMISSED_KEY, "true");
+  } catch (error) {
+    console.error("No se pudo guardar la preferencia del aviso de demo.", error);
+    notify("El aviso se ocultará, pero no se pudo guardar la preferencia.", true);
+  }
+  demoNotice.setAttribute("aria-hidden", "true");
+  demoNotice.classList.add("is-dismissing");
+  window.setTimeout(() => {
+    demoNotice.hidden = true;
+    demoNotice.classList.remove("is-dismissing");
+  }, 240);
 }
 
 function startDemo() {
@@ -654,6 +692,129 @@ async function handleUpdateGoal(form) {
   await refreshAndNotify("Meta actualizada.");
 }
 
+function handleGoalCoverActions(event) {
+  const changeButton = event.target.closest("[data-change-goal-cover]");
+  if (changeButton) {
+    changeButton.closest(".savings-hero-card")
+      .querySelector("[data-goal-cover-input]")
+      .click();
+    return;
+  }
+
+  const removeButton = event.target.closest("[data-remove-goal-cover]");
+  if (removeButton) void handleRemoveGoalCover(removeButton.dataset.goalId);
+}
+
+async function deleteStoredGoalCover(path) {
+  try {
+    const { error } = await supabaseRepository.deleteGoalCoverFile(path);
+    if (error) console.error("No se pudo eliminar un archivo de portada.", error);
+    return error;
+  } catch (error) {
+    console.error("No se pudo eliminar un archivo de portada.", error);
+    return error;
+  }
+}
+
+async function handleGoalCoverSelection(event) {
+  const input = event.target.closest("[data-goal-cover-input]");
+  const file = input?.files?.[0];
+  if (!input || !file) return;
+
+  const goal = state.goals.find((item) => item.id === input.dataset.goalId);
+  if (!goal) {
+    notify("No se encontró la meta seleccionada.", true);
+    input.value = "";
+    return;
+  }
+
+  const controls = input.closest(".goal-cover-actions");
+  controls.querySelectorAll("button").forEach((button) => {
+    button.disabled = true;
+  });
+  let uploadedPath = null;
+  try {
+    const coverBlob = await prepareGoalCover(file);
+    if (demoMode) {
+      const coverImageUrl = await readGoalCoverAsDataUrl(coverBlob);
+      commitDemoChange(() => {
+        goal.cover_image_url = coverImageUrl;
+        delete goal.cover_image_path;
+      }, "Portada actualizada en esta demo.");
+      return;
+    }
+
+    const previousPath = goal.cover_image_path;
+    const newPath = `${state.wallet.id}/${goal.id}/${crypto.randomUUID()}.jpg`;
+    const uploadResult = await supabaseRepository.uploadGoalCover(newPath, coverBlob);
+    if (uploadResult.error) throw uploadResult.error;
+    uploadedPath = newPath;
+
+    const { error } = await supabaseRepository.setGoalCover(
+      state.wallet.id,
+      goal.id,
+      newPath,
+    );
+    if (error) throw error;
+    uploadedPath = null;
+
+    let cleanupError = null;
+    if (previousPath) {
+      cleanupError = await deleteStoredGoalCover(previousPath);
+    }
+
+    if (await loadWorkspace(state.user)) {
+      notify(cleanupError
+        ? "Portada actualizada. No se pudo eliminar el archivo de la portada anterior."
+        : "Portada compartida actualizada.");
+    }
+  } catch (error) {
+    console.error("No se pudo actualizar la portada de la meta.", error);
+    let cleanupError = null;
+    if (uploadedPath) {
+      cleanupError = await deleteStoredGoalCover(uploadedPath);
+    }
+    notify(cleanupError
+      ? `${getErrorMessage(error)} No se pudo limpiar el archivo que no se guardó.`
+      : getErrorMessage(error), true);
+  } finally {
+    input.value = "";
+    controls.querySelectorAll("button").forEach((button) => {
+      button.disabled = false;
+    });
+  }
+}
+
+async function handleRemoveGoalCover(goalId) {
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal?.cover_image_url) return;
+
+  if (demoMode) {
+    commitDemoChange(() => {
+      delete goal.cover_image_url;
+    }, "Portada eliminada de la demo.");
+    return;
+  }
+
+  try {
+    const previousPath = goal.cover_image_path;
+    const { error } = await supabaseRepository.setGoalCover(state.wallet.id, goal.id, null);
+    if (error) throw error;
+
+    const cleanupError = previousPath
+      ? await deleteStoredGoalCover(previousPath)
+      : null;
+    if (await loadWorkspace(state.user)) {
+      notify(cleanupError
+        ? "Portada quitada. No se pudo eliminar el archivo anterior."
+        : "Portada quitada.");
+    }
+  } catch (error) {
+    console.error("No se pudo quitar la portada de la meta.", error);
+    notify(getErrorMessage(error), true);
+  }
+}
+
 async function handleDeleteGoal(goalId) {
   const goal = state.goals.find((item) => item.id === goalId);
   if (!goal) {
@@ -944,6 +1105,7 @@ async function handleLogout() {
 function initializeEventHandlers() {
   appNavigation = new AppNavigation();
 
+  document.querySelector("[data-dismiss-demo-notice]").addEventListener("click", dismissDemoBanner);
   document.querySelector("#form-login").addEventListener("submit", handleLogin);
   document.querySelector("[data-send-magic-link]").addEventListener("click", handleMagicLink);
   document.querySelector("#form-wallet").addEventListener("submit", handleCreateWallet);
@@ -958,6 +1120,8 @@ function initializeEventHandlers() {
   });
   document.querySelector("#form-meta").addEventListener("submit", handleNewGoal);
   document.querySelector("#form-invitacion").addEventListener("submit", handleInvite);
+  document.querySelector("#view-goals").addEventListener("click", handleGoalCoverActions);
+  document.querySelector("#view-goals").addEventListener("change", handleGoalCoverSelection);
   document.querySelector("#goals-list").addEventListener("submit", handleContribute);
   document.querySelector("#goals-list").addEventListener("click", handleGoalActions);
   document.querySelector("#income-list").addEventListener("click", handleDeleteIncome);

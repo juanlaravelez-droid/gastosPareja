@@ -51,7 +51,7 @@ export class ThemeToggle {
     if (label) label.textContent = isLight ? "Tema oscuro" : "Tema claro";
     document.querySelector('meta[name="theme-color"]')?.setAttribute(
       "content",
-      isLight ? "#CFE8E1" : "#0d1a2d",
+      "#111d35",
     );
   }
 }

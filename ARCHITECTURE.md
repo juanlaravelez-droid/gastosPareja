@@ -9,6 +9,7 @@ src/
     expense-service.js        # Alta, eliminación y reparto neto de gastos
     wallet-service.js          # Resúmenes, saldos y cálculos para la billetera
     wallet-validation.js       # Validaciones para operaciones de la billetera
+    goal-cover.js              # Validación y optimización de portadas de metas
   domain/
     finance.js                 # Cálculos y reglas financieras puras
   infrastructure/
@@ -30,6 +31,12 @@ servicios, repositorios y renderizado. Los servicios operan sobre datos puros;
 la presentación recibe sus resultados para actualizar la interfaz. El acceso a
 `localStorage` se encapsula en `storage-repository.js`, y la persistencia de la
 demo y de Supabase se mantiene detrás de sus respectivos repositorios.
+
+Las portadas compartidas se comprimen en el navegador y se guardan en el bucket
+privado `goal-covers`. La meta conserva la ruta del archivo; Supabase Storage
+emite URLs firmadas solo para integrantes de la billetera. La migración
+`20261111000000_add_shared_goal_covers.sql` configura el bucket, sus políticas y
+la RPC que vincula o quita la portada de una meta.
 
 `calculateExpenseSplit` divide cada gasto entre los integrantes en centavos,
 distribuye cualquier centavo sobrante de manera determinista y devuelve lo

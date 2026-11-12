@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSupabaseRepository } from "../src/infrastructure/supabase-repository.js";
 
-function createWorkspaceClient() {
+function createWorkspaceClient(goalRows = []) {
   const calls = [];
   let memberLookupCount = 0;
   const datasets = {
@@ -11,7 +11,7 @@ function createWorkspaceClient() {
     incomes: [{ id: "income-1", amount: 50 }],
     expenses: [],
     settlements: [],
-    goals: [],
+    goals: goalRows,
     goal_contributions: [{ id: "contribution-1", goal_id: "goal-1", contributor_id: "user-1", amount: 25 }],
   };
 
@@ -52,6 +52,16 @@ function createWorkspaceClient() {
     functions: {
       invoke: async () => ({ data: null, error: null }),
     },
+    storage: {
+      from(bucket) {
+        return {
+          createSignedUrl: async (path, expiresIn) => {
+            calls.push({ kind: "signed-url", bucket, path, expiresIn });
+            return { data: { signedUrl: `https://signed.example/${path}` }, error: null };
+          },
+        };
+      },
+    },
   };
 }
 
@@ -72,6 +82,24 @@ test("loads wallet records through the repository and maps workspace state", asy
     goalContributions: [{ id: "contribution-1", goal_id: "goal-1", contributor_id: "user-1", amount: 25 }],
   });
   assert.ok(client.calls.some((call) => call.kind === "eq" && call.column === "user_id" && call.value === "user-1"));
+});
+
+test("loads private shared goal covers as signed URLs", async () => {
+  const client = createWorkspaceClient([{
+    id: "goal-1",
+    cover_image_path: "wallet-1/goal-1/cover.jpg",
+  }]);
+  const repository = createSupabaseRepository(client);
+
+  const workspace = await repository.getWorkspace("user-1");
+
+  assert.equal(workspace.goals[0].cover_image_url, "https://signed.example/wallet-1/goal-1/cover.jpg");
+  assert.deepEqual(client.calls.find((call) => call.kind === "signed-url"), {
+    kind: "signed-url",
+    bucket: "goal-covers",
+    path: "wallet-1/goal-1/cover.jpg",
+    expiresIn: 60 * 60 * 24 * 7,
+  });
 });
 
 test("maps email and password sign-in to Supabase Auth", async () => {
@@ -154,4 +182,50 @@ test("maps settlement registration to the wallet-scoped RPC", async () => {
       p_amount: 125.5,
     },
   ]]);
+});
+
+test("maps shared goal cover upload, update, and removal to Supabase", async () => {
+  const calls = [];
+  const repository = createSupabaseRepository({
+    rpc: async (...args) => {
+      calls.push({ kind: "rpc", args });
+      return { data: null, error: null };
+    },
+    storage: {
+      from(bucket) {
+        return {
+          upload: async (path, file, options) => {
+            calls.push({ kind: "upload", bucket, path, file, options });
+            return { data: { path }, error: null };
+          },
+          remove: async (paths) => {
+            calls.push({ kind: "remove", bucket, paths });
+            return { data: paths, error: null };
+          },
+        };
+      },
+    },
+  });
+  const image = new Blob(["image"], { type: "image/jpeg" });
+
+  await repository.uploadGoalCover("wallet-1/goal-1/cover.jpg", image);
+  await repository.setGoalCover("wallet-1", "goal-1", "wallet-1/goal-1/cover.jpg");
+  await repository.deleteGoalCoverFile("wallet-1/goal-1/old.jpg");
+
+  assert.equal(calls[0].kind, "upload");
+  assert.equal(calls[0].bucket, "goal-covers");
+  assert.equal(calls[0].options.upsert, false);
+  assert.deepEqual(calls[1], {
+    kind: "rpc",
+    args: ["set_goal_cover", {
+      p_wallet_id: "wallet-1",
+      p_goal_id: "goal-1",
+      p_cover_path: "wallet-1/goal-1/cover.jpg",
+    }],
+  });
+  assert.deepEqual(calls[2], {
+    kind: "remove",
+    bucket: "goal-covers",
+    paths: ["wallet-1/goal-1/old.jpg"],
+  });
 });

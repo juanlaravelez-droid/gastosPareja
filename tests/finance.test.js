@@ -6,7 +6,10 @@ import {
   isValidDateInput,
   totalOf,
 } from "../src/domain/finance.js";
-import { getSavingsContributionSummary } from "../src/application/wallet-service.js";
+import {
+  getGoalProgressSegments,
+  getSavingsContributionSummary,
+} from "../src/application/wallet-service.js";
 
 test("calculates totals and available balance", () => {
   const wallet = {
@@ -56,4 +59,43 @@ test("summarizes goal and monthly contributions without assigning legacy savings
   assert.equal(summary.monthlyTotal, 400);
   assert.equal(summary.unattributedAmount, 250);
   assert.equal(summary.unattributedPercentage, 25);
+});
+
+test("builds ordered goal progress segments with unattributed savings first", () => {
+  const segments = getGoalProgressSegments(
+    { current_amount: 700, target_amount: 1000 },
+    {
+      unattributedAmount: 250,
+      memberAmounts: [
+        { memberIndex: 2, amount: 150 },
+        { memberIndex: 1, amount: 300 },
+      ],
+    },
+  );
+
+  assert.deepEqual(segments, { unattributed: 25, memberOne: 30, memberTwo: 15 });
+  assert.equal(segments.unattributed + segments.memberOne + segments.memberTwo, 70);
+});
+
+test("caps stacked member progress at the amount currently saved", () => {
+  assert.deepEqual(
+    getGoalProgressSegments(
+      { current_amount: 500, target_amount: 1000 },
+      {
+        unattributedAmount: 0,
+        memberAmounts: [
+          { memberIndex: 1, amount: 300 },
+          { memberIndex: 2, amount: 300 },
+        ],
+      },
+    ),
+    { unattributed: 0, memberOne: 30, memberTwo: 20 },
+  );
+  assert.deepEqual(
+    getGoalProgressSegments(
+      { current_amount: 10, target_amount: 0 },
+      { unattributedAmount: 0, memberAmounts: [] },
+    ),
+    { unattributed: 0, memberOne: 0, memberTwo: 0 },
+  );
 });

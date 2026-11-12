@@ -8,7 +8,7 @@ Los registros creados por la versión anterior en `localStorage` no se importan 
 
 1. Crea un proyecto en [Supabase](https://supabase.com/) y espera a que la base de datos termine de inicializarse.
 2. En **SQL Editor**, ejecuta el contenido de `supabase/schema.sql`.
-   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. Las migraciones anteriores habilitan la atribución de ingresos y la administración de metas. Aplica también `20261109000000_add_settlements.sql` para las liquidaciones y `20261110000000_add_goal_contributions.sql` para el registro de aportes individuales a metas.
+   Si el esquema ya estaba instalado, no vuelvas a ejecutar `schema.sql`: ejecuta las migraciones pendientes en `supabase/migrations/`. Las migraciones anteriores habilitan la atribución de ingresos y la administración de metas. Aplica también `20261109000000_add_settlements.sql` para las liquidaciones, `20261110000000_add_goal_contributions.sql` para el registro de aportes individuales a metas y `20261111000000_add_shared_goal_covers.sql` para habilitar las portadas compartidas de metas.
 3. En **Project Settings → API**, copia la URL del proyecto y la clave publicable (o la clave `anon` heredada).
 4. Pega esos valores en `supabase-config.example.js`:
 
