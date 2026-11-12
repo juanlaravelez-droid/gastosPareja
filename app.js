@@ -319,9 +319,36 @@ function initializePwa() {
   let isIosInstallGuide = false;
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch((error) => {
-      console.error("No se pudo registrar el service worker de DuoBalance.", error);
-    });
+    const hadServiceWorkerController = Boolean(navigator.serviceWorker.controller);
+    let updatedControllerPending = false;
+    const reloadAfterUpdate = () => {
+      if (
+        !updatedControllerPending
+        || document.visibilityState !== "visible"
+        || document.querySelector("dialog[open], input:focus, select:focus, textarea:focus")
+      ) return;
+      updatedControllerPending = false;
+      window.location.reload();
+    };
+
+    if (hadServiceWorkerController) {
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        updatedControllerPending = true;
+        reloadAfterUpdate();
+      }, { once: true });
+      document.addEventListener("visibilitychange", reloadAfterUpdate);
+      document.addEventListener("focusin", reloadAfterUpdate);
+      document.addEventListener("focusout", () => {
+        window.setTimeout(reloadAfterUpdate, 250);
+      });
+      document.addEventListener("close", reloadAfterUpdate, true);
+    }
+
+    navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" })
+      .then((registration) => registration.update())
+      .catch((error) => {
+        console.error("No se pudo actualizar el service worker de DuoBalance.", error);
+      });
   }
 
   if (isStandalone) return;

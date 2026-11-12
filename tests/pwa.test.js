@@ -27,6 +27,7 @@ test("declares installable DuoBalance metadata and correctly sized icons", async
 
 test("pre-caches existing local app-shell assets in the service worker", async () => {
   const serviceWorker = await readFile(path.join(root, "sw.js"), "utf8");
+  const app = await readFile(path.join(root, "app.js"), "utf8");
   const assetBlock = serviceWorker.match(/const CORE_ASSETS = \[([\s\S]*?)\];/);
   assert.ok(assetBlock);
 
@@ -44,6 +45,11 @@ test("pre-caches existing local app-shell assets in the service worker", async (
   assert.match(serviceWorker, /addEventListener\("install"/);
   assert.match(serviceWorker, /addEventListener\("activate"/);
   assert.match(serviceWorker, /addEventListener\("fetch"/);
+  assert.match(serviceWorker, /duobalance-shell-v10/);
+  assert.match(app, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
+  assert.match(app, /registration\.update\(\)/);
+  assert.match(app, /controllerchange/);
+  assert.match(app, /window\.location\.reload\(\)/);
 });
 
 test("provides PWA metadata and install controls in the page", async () => {
