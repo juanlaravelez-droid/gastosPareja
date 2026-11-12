@@ -24,7 +24,7 @@ export class DashboardView {
     storage,
     formatCurrency,
     onQuickExpense,
-    onSettle,
+    onTransfer,
     onNotifications,
     onError = (error, message) => console.error(message, error),
   }) {
@@ -33,7 +33,7 @@ export class DashboardView {
     this.storage = storage;
     this.formatCurrency = formatCurrency;
     this.onQuickExpense = onQuickExpense;
-    this.onSettle = onSettle;
+    this.onTransfer = onTransfer;
     this.onNotifications = onNotifications;
     this.onError = onError;
     this.metrics = null;
@@ -86,10 +86,8 @@ export class DashboardView {
     this.root.querySelector("[data-dashboard-quick-expense]")?.addEventListener("click", () => {
       this.onQuickExpense();
     });
-    this.root.querySelectorAll("[data-dashboard-settle]").forEach((button) => {
-      button.addEventListener("click", () => {
-        if (this.metrics?.settlementAmount > 0) this.onSettle(this.metrics);
-      });
+    this.root.querySelector("[data-dashboard-transfer]")?.addEventListener("click", () => {
+      this.onTransfer();
     });
     document.querySelector("[data-dashboard-notifications]")?.addEventListener("click", () => {
       this.onNotifications(this.metrics);
@@ -117,19 +115,10 @@ export class DashboardView {
 
     setText("[data-dashboard-user]", summaryData.currentUserName);
     setText("[data-dashboard-avatar]", summaryData.avatarInitials);
-    setText("[data-dashboard-pending]", String(summaryData.pendingCount));
     setText("[data-dashboard-overdue]", String(summaryData.overdueCount));
     setText("[data-dashboard-paid]", String(summaryData.paidCount));
-    setText("[data-dashboard-balance-label]", summaryData.netBalance > 0
-      ? "Te deben"
-      : summaryData.netBalance < 0
-        ? "Debes"
-        : "En balance");
-    setText("[data-dashboard-balance-caption]", summaryData.netBalance > 0
-      ? `A tu favor frente a ${summaryData.partnerName}`
-      : summaryData.netBalance < 0
-        ? `Pendiente con ${summaryData.partnerName}`
-        : "Sin saldos pendientes entre ustedes");
+    setText("[data-dashboard-my-contribution-label]", "Aportado por ti");
+    setText("[data-dashboard-partner-contribution-label]", `Aportado por ${summaryData.partnerName}`);
     const monthCaption = this.root.querySelector("[data-dashboard-month-caption]");
     if (monthCaption) {
       monthCaption.dataset.value = `Gastado este mes: ${this.formatCurrency(summaryData.monthExpenseTotal)}`;
@@ -140,28 +129,16 @@ export class DashboardView {
     }
     setText("[data-dashboard-projection-note]", "Proyección según el ritmo de gasto actual");
     setText("[data-dashboard-upcoming]", "Todo en orden para el próximo mes");
-    setMoney("[data-dashboard-net-balance]", Math.abs(summaryData.netBalance));
+    setMoney("[data-dashboard-month-savings]", summaryData.monthlyAvailableBalance);
+    setMoney("[data-dashboard-fund]", summaryData.monthlyAvailableBalance);
     setMoney("[data-dashboard-projection]", summaryData.projectedMonthExpense);
     setMoney("[data-dashboard-my-contribution]", summaryData.personalContribution);
     setMoney("[data-dashboard-partner-contribution]", summaryData.partnerContribution);
     setMoney("[data-dashboard-savings]", summaryData.savedTotal);
-
-    const balanceCard = this.root.querySelector("[data-dashboard-net-card]");
-    balanceCard?.classList.toggle("is-credit", summaryData.netBalance > 0);
-    balanceCard?.classList.toggle("is-debt", summaryData.netBalance < 0);
-    const canSettle = summaryData.settlementAmount > 0
-      && summaryData.settlementPayerId === summaryData.currentUserId;
-    this.root.querySelectorAll("[data-dashboard-settle]").forEach((settlementButton) => {
-      settlementButton.disabled = !canSettle;
-      settlementButton.textContent = canSettle ? "Saldar" : "Esperando pago";
-      settlementButton.setAttribute("aria-label", canSettle
-        ? `Saldar cuenta con ${summaryData.settlementReceiverName}`
-        : "Esperando el pago de tu pareja");
-    });
-    const notificationBadge = document.querySelector("[data-dashboard-notification-count]");
-    if (notificationBadge) {
-      notificationBadge.textContent = String(summaryData.pendingCount);
-      notificationBadge.hidden = summaryData.pendingCount === 0;
+    const transferButton = this.root.querySelector("[data-dashboard-transfer]");
+    if (transferButton) {
+      transferButton.disabled = summaryData.monthlyAvailableBalance <= 0
+        || summaryData.walletAvailableBalance <= 0;
     }
   }
 }

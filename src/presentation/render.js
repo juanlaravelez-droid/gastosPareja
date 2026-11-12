@@ -4,7 +4,7 @@ import {
   getGoalSummary,
   getSavingsContributionSummary,
   getWalletSummary,
-} from "../application/wallet-service.js?v=2";
+} from "../application/wallet-service.js?v=3";
 
 function getExpenseCategory(description = "") {
   const text = description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -32,7 +32,14 @@ function getExpenseCategory(description = "") {
   return { name: "Gasto común", icon: "💳", class: "cat-general" };
 }
 
-export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHtml, dashboardView }) {
+export function createRenderer({
+  getState,
+  getDemoMode,
+  formatCurrency,
+  escapeHtml,
+  dashboardView,
+  onSelectPrimary = () => {},
+}) {
   let selectedGoalId = null;
   const dateFormatter = new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
@@ -62,7 +69,7 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
         : null;
 
       return `
-      <article class="goal-card${complete ? " goal-complete-card" : ""}">
+      <article class="goal-card${complete ? " goal-complete-card" : ""}" data-edit-goal="${escapeHtml(goal.id)}" tabindex="0" aria-label="Editar meta ${escapeHtml(goal.title)}">
         <div class="goal-topline">
           <div class="goal-title-wrap">
             <span class="goal-symbol" aria-hidden="true">${complete ? "🎉" : "🎯"}</span>
@@ -72,6 +79,7 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
             </div>
           </div>
           ${complete ? '<span class="goal-complete">¡Alcanzada!</span>' : `<span class="goal-progress-badge">${progress}%</span>`}
+          <span class="goal-edit-indicator" aria-hidden="true">✎</span>
         </div>
 
         <div class="goal-moneyline">
@@ -98,34 +106,11 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
         </div>
 
         <div class="goal-actions">
-          <button class="button button-light button-small" type="button" data-action="editar-meta" data-goal-id="${escapeHtml(goal.id)}" aria-expanded="false">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-            Editar
-          </button>
           <button class="button button-light button-small goal-delete-button" type="button" data-action="eliminar-meta" data-goal-id="${escapeHtml(goal.id)}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             Eliminar
           </button>
         </div>
-
-        <form class="goal-edit-form stacked-form" data-form="editar-meta" data-goal-id="${escapeHtml(goal.id)}" hidden>
-          <label>
-            <span class="label-text">Nombre de la meta</span>
-            <input name="titulo" type="text" minlength="3" maxlength="80" value="${escapeHtml(goal.title)}" required>
-          </label>
-          <label>
-            <span class="label-text">Monto objetivo (mínimo ${formatCurrency(Number(goal.current_amount))})</span>
-            <input name="montoObjetivo" type="number" min="${Number(goal.current_amount)}" step="any" inputmode="decimal" value="${Number(goal.target_amount)}" required>
-          </label>
-          <label>
-            <span class="label-text">Fecha objetivo (opcional)</span>
-            <input name="fechaObjetivo" type="date" value="${escapeHtml(goal.target_date || "")}">
-          </label>
-          <div class="goal-edit-actions">
-            <button class="button button-primary button-small" type="submit">Guardar cambios</button>
-            <button class="button button-light button-small" type="button" data-action="cancelar-edicion-meta">Cancelar</button>
-          </div>
-        </form>
       </article>
     `;
     }).join("");
@@ -139,12 +124,14 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
       return;
     }
 
-    let activeGoal = state.goals.find((goal) => goal.id === selectedGoalId);
+    let activeGoal = state.goals.find((goal) => goal.id === state.primaryGoalId)
+      || state.goals.find((goal) => goal.id === selectedGoalId);
     if (!activeGoal) {
       activeGoal = state.goals.find((goal) =>
         Number(goal.current_amount) < Number(goal.target_amount)) || state.goals[0];
-      selectedGoalId = activeGoal.id;
     }
+    selectedGoalId = activeGoal.id;
+    state.primaryGoalId = activeGoal.id;
 
     const memberOneName = state.wallet.nombre_miembro1;
     const memberTwoName = state.wallet.nombre_miembro2;
@@ -162,6 +149,11 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     const progressSegments = getGoalProgressSegments(activeGoal, contributionSummary);
 
     overview.hidden = false;
+    const heroCard = document.querySelector(".savings-hero-card");
+    heroCard.dataset.editGoal = activeGoal.id;
+    heroCard.tabIndex = 0;
+    heroCard.setAttribute("role", "button");
+    heroCard.setAttribute("aria-label", `Editar meta principal ${activeGoal.title}`);
     document.querySelector("[data-active-goal-title]").textContent = activeGoal.title;
     const coverImage = document.querySelector("[data-active-goal-cover]");
     const coverImageUrl = activeGoal.cover_image_url || "";
@@ -176,10 +168,6 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
       coverImage.hidden = true;
       coverImage.removeAttribute("src");
     };
-    document.querySelector("[data-goal-cover-input]").dataset.goalId = activeGoal.id;
-    const removeCoverButton = document.querySelector("[data-remove-goal-cover]");
-    removeCoverButton.dataset.goalId = activeGoal.id;
-    removeCoverButton.hidden = !coverImageUrl;
     document.querySelector("[data-active-goal-total]").textContent = formatCurrency(Number(activeGoal.current_amount));
     document.querySelector("[data-active-goal-target]").textContent = formatCurrency(targetAmount);
     document.querySelector("[data-active-goal-percent]").textContent = `${goalSummary.progress}% completado`;
@@ -232,20 +220,58 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     const goalSelector = document.querySelector("[data-goal-selector]");
     goalSelector.innerHTML = otherGoals.map((goal) => {
       const { progress } = getGoalSummary(goal, getTodayDateInput());
-      return `<button class="goal-selector-card" type="button" data-select-goal="${escapeHtml(goal.id)}">
-        <span>${escapeHtml(goal.title)}</span>
-        <strong>${progress}%</strong>
-        <small>${formatCurrency(Number(goal.current_amount))} de ${formatCurrency(Number(goal.target_amount))}</small>
-      </button>`;
+      const cover = goal.cover_image_url
+        ? `<img src="${escapeHtml(goal.cover_image_url)}" alt="" loading="lazy">`
+        : '<span aria-hidden="true">🎯</span>';
+      return `<article class="goal-selector-card${otherGoals.length === 1 ? " is-single" : ""}" data-edit-goal="${escapeHtml(goal.id)}" tabindex="0" aria-label="Editar meta ${escapeHtml(goal.title)}">
+        <div class="goal-selector-cover">${cover}</div>
+        <div class="goal-selector-content">
+          <div class="goal-selector-topline">
+            <h3>${escapeHtml(goal.title)}</h3>
+            <span class="goal-selector-actions">
+              <button class="goal-selector-icon-button" type="button" data-select-goal="${escapeHtml(goal.id)}" title="Fijar como meta principal" aria-label="Fijar ${escapeHtml(goal.title)} como meta principal">☆</button>
+              <span class="goal-edit-indicator" aria-hidden="true">✎</span>
+            </span>
+          </div>
+          <div class="goal-selector-progress-line"><strong>${progress}%</strong><small>${formatCurrency(Number(goal.current_amount))} de ${formatCurrency(Number(goal.target_amount))}</small></div>
+          <div class="goal-selector-track" role="progressbar" aria-label="Progreso de ${escapeHtml(goal.title)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+            <span style="width:${progress}%"></span>
+          </div>
+        </div>
+      </article>`;
     }).join("");
     goalSelector.closest(".secondary-goals").hidden = otherGoals.length === 0;
   }
 
+  function renderGoalTransferOptions(state) {
+    const select = document.querySelector("[data-transfer-goal]");
+    const form = document.querySelector("#form-transfer-goal");
+    const button = document.querySelector("[data-dashboard-transfer]");
+    const activeGoals = state.goals.filter((goal) =>
+      Number(goal.current_amount) < Number(goal.target_amount));
+    const previousGoalId = select.value;
+    select.innerHTML = activeGoals.length
+      ? activeGoals.map((goal) =>
+        `<option value="${escapeHtml(goal.id)}">${escapeHtml(goal.title)}</option>`).join("")
+      : '<option value="">No hay metas activas</option>';
+    select.value = activeGoals.some((goal) => goal.id === previousGoalId)
+      ? previousGoalId
+      : activeGoals[0]?.id || "";
+    form.dataset.metaId = select.value;
+    select.disabled = activeGoals.length === 0;
+    const summary = getDashboardSummary(state);
+    button.disabled = activeGoals.length === 0
+      || summary.monthlyAvailableBalance <= 0
+      || summary.walletAvailableBalance <= 0;
+  }
+
   function renderIncomes(state) {
-    return state.incomes.map((income) => {
+    const records = state.incomes.map((income) => {
       const author = getMemberName(state, income.author_id);
       const formattedDate = dateFormatter.format(new Date(income.created_at));
-      return `
+      return {
+        createdAt: income.created_at,
+        markup: `
       <article class="transaction-card income-card income-row" data-id="${escapeHtml(income.id)}">
         <div class="transaction-icon income-icon-bg">
           <span class="income-arrow" aria-hidden="true">↗</span>
@@ -271,8 +297,38 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
           </button>
         </div>
       </article>
-    `;
-    }).join("");
+    `,
+      };
+    });
+    const goalContributions = (state.goalContributions || []).map((contribution) => {
+      const author = getMemberName(state, contribution.contributor_id);
+      const goal = state.goals.find((item) => item.id === contribution.goal_id);
+      const formattedDate = dateFormatter.format(new Date(contribution.created_at));
+      return {
+        createdAt: contribution.created_at,
+        markup: `
+      <article class="transaction-card income-card income-row goal-transfer-card" data-id="${escapeHtml(contribution.id)}" data-movement-type="transferencia_meta">
+        <div class="transaction-icon income-icon-bg"><span class="income-arrow" aria-hidden="true">↗</span></div>
+        <div class="transaction-details">
+          <div class="transaction-top">
+            <h4 class="transaction-name">Transferencia a ${escapeHtml(goal?.title || "meta")}</h4>
+            <span class="transaction-category-chip cat-income">Meta</span>
+          </div>
+          <div class="transaction-sub">
+            <span class="transaction-author"><span class="author-avatar-dot income-dot"></span>Aportado por <strong>${escapeHtml(author)}</strong></span>
+            <span class="meta-separator" aria-hidden="true">·</span>
+            <time class="transaction-time">${escapeHtml(formattedDate)}</time>
+          </div>
+        </div>
+        <div class="transaction-amount-col"><span class="goal-transfer-amount">− ${formatCurrency(Number(contribution.amount))}</span></div>
+      </article>
+    `,
+      };
+    });
+    return [...records, ...goalContributions]
+      .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt))
+      .map((record) => record.markup)
+      .join("");
   }
 
   function renderExpenses(state) {
@@ -317,56 +373,12 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     const state = getState();
     const summary = getWalletSummary(state);
     dashboardView.updateMetrics(getDashboardSummary(state));
-    const balanceElement = document.querySelector("#saldo-disponible");
-    balanceElement.textContent = formatCurrency(summary.availableBalance);
 
     document.querySelector("#total-ingresos").textContent = formatCurrency(summary.incomeTotal);
     document.querySelector("#total-gastos").textContent = formatCurrency(summary.expenseTotal);
     document.querySelector("#total-ahorrado").textContent = formatCurrency(summary.savedTotal);
-    document.querySelector("#nombre-miembro1").textContent = state.wallet.nombre_miembro1;
-    document.querySelector("#nombre-miembro2").textContent = state.wallet.nombre_miembro2;
-    document.querySelector("#aporte-miembro1").textContent = formatCurrency(summary.contributions[0]);
-    document.querySelector("#aporte-miembro2").textContent = formatCurrency(summary.contributions[1]);
     document.querySelector("#nombre-miembro1-edicion").value = state.wallet.nombre_miembro1;
     document.querySelector("#nombre-miembro2-edicion").value = state.wallet.nombre_miembro2;
-
-    const splitFill1 = document.querySelector("#split-fill-m1");
-    const splitFill2 = document.querySelector("#split-fill-m2");
-    if (splitFill1) splitFill1.style.width = `${summary.percentages[0]}%`;
-    if (splitFill2) splitFill2.style.width = `${summary.percentages[1]}%`;
-
-    const share1 = document.querySelector("#porcentaje-miembro1");
-    const share2 = document.querySelector("#porcentaje-miembro2");
-    if (share1) share1.textContent = `${summary.percentages[0]}% del fondo`;
-    if (share2) share2.textContent = `${summary.percentages[1]}% del fondo`;
-
-    const splitBadge = document.querySelector("#balance-split-badge");
-    const substatus1 = document.querySelector("#estado-miembro1");
-    const substatus2 = document.querySelector("#estado-miembro2");
-
-    if (splitBadge) {
-      if (summary.contributionStatus === "none") {
-        splitBadge.textContent = "Aportes al día";
-        splitBadge.className = "badge badge-neutral";
-        if (substatus1) substatus1.textContent = "Sin aportes";
-        if (substatus2) substatus2.textContent = "Sin aportes";
-      } else if (summary.contributionStatus === "balanced") {
-        splitBadge.textContent = "⚖️ Aportes 50% / 50% en balance";
-        splitBadge.className = "badge badge-balanced";
-        if (substatus1) substatus1.textContent = "Equilibrado";
-        if (substatus2) substatus2.textContent = "Equilibrado";
-      } else if (summary.contributionStatus === "first-ahead") {
-        splitBadge.textContent = `↗ ${state.wallet.nombre_miembro1} aportó ${formatCurrency(summary.contributionDifference)} más`;
-        splitBadge.className = "badge badge-lead";
-        if (substatus1) substatus1.textContent = `Aporte mayor (+${formatCurrency(summary.contributionDifference)})`;
-        if (substatus2) substatus2.textContent = `Por equilibrar: ${formatCurrency(summary.contributionDifference)}`;
-      } else {
-        splitBadge.textContent = `↗ ${state.wallet.nombre_miembro2} aportó ${formatCurrency(summary.contributionDifference)} más`;
-        splitBadge.className = "badge badge-lead";
-        if (substatus1) substatus1.textContent = `Por equilibrar: ${formatCurrency(summary.contributionDifference)}`;
-        if (substatus2) substatus2.textContent = `Aporte mayor (+${formatCurrency(summary.contributionDifference)})`;
-      }
-    }
 
     const incomeAuthor = document.querySelector("#ingreso-autor");
     incomeAuthor.innerHTML = [...state.members]
@@ -382,16 +394,19 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
     incomeAuthor.disabled = state.members.length < 2;
 
     document.querySelector("#goal-count").textContent = `${state.goals.length} ${state.goals.length === 1 ? "meta" : "metas"}`;
-    document.querySelector("#income-count").textContent = `${state.incomes.length} ${state.incomes.length === 1 ? "ingreso" : "ingresos"}`;
+    const incomeAndContributionCount = state.incomes.length + (state.goalContributions || []).length;
+    document.querySelector("#income-count").textContent =
+      `${incomeAndContributionCount} ${incomeAndContributionCount === 1 ? "movimiento" : "movimientos"}`;
     document.querySelector("#expense-count").textContent = `${state.expenses.length} ${state.expenses.length === 1 ? "gasto" : "gastos"}`;
 
     document.querySelector("#goals-list").innerHTML = renderGoals(state);
     renderSavingsOverview(state);
+    renderGoalTransferOptions(state);
     document.querySelector("#income-list").innerHTML = renderIncomes(state);
     document.querySelector("#expense-list").innerHTML = renderExpenses(state);
 
     document.querySelector("#goals-empty").hidden = state.goals.length > 0;
-    document.querySelector("#income-empty").hidden = state.incomes.length > 0;
+    document.querySelector("#income-empty").hidden = incomeAndContributionCount > 0;
     document.querySelector("#expense-empty").hidden = state.expenses.length > 0;
     document.querySelector("#invite-panel").hidden = getDemoMode() || state.members.length >= 2;
   }
@@ -399,7 +414,9 @@ export function createRenderer({ getState, getDemoMode, formatCurrency, escapeHt
   document.querySelector("[data-goal-selector]").addEventListener("click", (event) => {
     const button = event.target.closest("[data-select-goal]");
     if (!button) return;
+    event.stopPropagation();
     selectedGoalId = button.dataset.selectGoal;
+    onSelectPrimary(selectedGoalId);
     renderApp();
   });
 

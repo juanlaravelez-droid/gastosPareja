@@ -119,6 +119,35 @@ test("maps email and password sign-in to Supabase Auth", async () => {
   assert.equal(result.data.user.id, "user-1");
 });
 
+test("maps account creation and optional display name to Supabase Auth", async () => {
+  const calls = [];
+  const repository = createSupabaseRepository({
+    auth: {
+      signUp: async (credentials) => {
+        calls.push(credentials);
+        return { data: { user: { id: "user-2" }, session: null }, error: null };
+      },
+    },
+  });
+
+  const result = await repository.signUp(
+    "isa@example.com",
+    "secure-password",
+    "Isa",
+    "https://duobalance.example/index.html",
+  );
+
+  assert.deepEqual(calls, [{
+    email: "isa@example.com",
+    password: "secure-password",
+    options: {
+      emailRedirectTo: "https://duobalance.example/index.html",
+      data: { display_name: "Isa" },
+    },
+  }]);
+  assert.equal(result.data.user.id, "user-2");
+});
+
 test("maps goal update arguments to the existing database RPC", async () => {
   const calls = [];
   const repository = createSupabaseRepository({

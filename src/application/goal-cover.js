@@ -1,5 +1,7 @@
 export const MAX_GOAL_COVER_INPUT_SIZE = 20 * 1024 * 1024;
 export const MAX_GOAL_COVER_SIZE = 1.5 * 1024 * 1024;
+export const GOAL_COVER_MAX_WIDTH = 800;
+export const GOAL_COVER_JPEG_QUALITY = 0.75;
 
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -22,10 +24,11 @@ export async function prepareGoalCover(file) {
 
   const bitmap = await createImageBitmap(file);
   try {
-    const largestDimension = Math.max(bitmap.width, bitmap.height);
-    if (!largestDimension) throw new Error("No se pudo leer la imagen seleccionada.");
+    if (!bitmap.width || !bitmap.height) {
+      throw new Error("No se pudo leer la imagen seleccionada.");
+    }
 
-    let scale = Math.min(1, 1600 / largestDimension);
+    let scale = Math.min(1, GOAL_COVER_MAX_WIDTH / bitmap.width);
     while (scale >= 0.25) {
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -34,7 +37,7 @@ export async function prepareGoalCover(file) {
       if (!context) throw new Error("No se pudo preparar la imagen seleccionada.");
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       const blob = await new Promise((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", 0.82);
+      canvas.toBlob(resolve, "image/jpeg", GOAL_COVER_JPEG_QUALITY);
       });
       canvas.width = 0;
       canvas.height = 0;

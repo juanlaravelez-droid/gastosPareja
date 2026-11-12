@@ -38,13 +38,12 @@ emite URLs firmadas solo para integrantes de la billetera. La migración
 `20261111000000_add_shared_goal_covers.sql` configura el bucket, sus políticas y
 la RPC que vincula o quita la portada de una meta.
 
-`calculateExpenseSplit` divide cada gasto entre los integrantes en centavos,
-distribuye cualquier centavo sobrante de manera determinista y devuelve lo
-pagado, lo que corresponde y el saldo neto por persona. `getDashboardSummary`
-calcula las métricas mensuales y la proyección desde esos datos; las liquidaciones
-se guardan en la demo o en Supabase y reducen el saldo pendiente. Solo quien
-realiza el pago puede registrar una liquidación en Supabase. El borrado de gastos
-también pasa por una función autorizada para miembros de la billetera.
+`getDashboardSummary` presenta el fondo común del mes a partir de los aportes,
+gastos y transferencias a metas del periodo, además de las aportaciones por
+integrante y la proyección de gastos. Las transferencias usan el registro
+compartido de aportes a metas y se muestran en Movimientos. Los gastos se
+descuentan del fondo común y su borrado pasa por una función autorizada para
+miembros de la billetera.
 
 Las operaciones de saldo, gastos y metas que afectan a datos compartidos deben
 seguir protegidas por las funciones y políticas de Supabase. Las validaciones

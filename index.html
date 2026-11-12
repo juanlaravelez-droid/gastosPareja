@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#111d35">
+    <meta name="theme-color" content="#172d4d">
     <meta name="description" content="DuoBalance: finanzas compartidas en pareja con gastos, aportes, metas y saldos netos.">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,8 +14,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=24">
-    <script type="module" src="app.js?v=20"></script>
+    <link rel="stylesheet" href="styles.css?v=26">
+    <script type="module" src="app.js?v=22"></script>
   </head>
   <body>
     <div class="app-layout">
@@ -67,20 +67,39 @@
         <img class="auth-logo" src="img/logo.jpeg" alt="Dúo, finanzas en pareja">
         <div class="access-badge">Acceso seguro</div>
         <h1 id="auth-title">Entren a su billetera</h1>
-        <p class="panel-intro">Inicien sesión con su correo y contraseña. También pueden pedir un enlace mágico al correo.</p>
+        <p id="auth-intro" class="panel-intro">Inicien sesión con su correo y contraseña. También pueden pedir un enlace mágico al correo.</p>
         <form id="form-login" class="stacked-form" novalidate>
           <label>
             <span class="label-text">Correo electrónico</span>
             <input id="login-email" name="email" type="email" autocomplete="email" placeholder="ustedes@correo.com" required>
           </label>
-          <label>
-            <span class="label-text">Contraseña</span>
-            <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+          <label id="signup-name-field" hidden>
+            <span class="label-text">Tu nombre (opcional)</span>
+            <input id="signup-name" name="displayName" type="text" maxlength="40" autocomplete="given-name" placeholder="Ej. Juan o Isa">
           </label>
-          <button class="button button-primary button-full" type="submit">Iniciar sesión <span aria-hidden="true">→</span></button>
-          <button class="button button-secondary button-full" type="button" data-send-magic-link>Enviar enlace mágico al correo</button>
+          <label class="password-field">
+            <span class="label-text">Contraseña</span>
+            <span class="password-input-wrap">
+              <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+              <button class="password-toggle" type="button" data-toggle-password aria-label="Mostrar contraseña" aria-pressed="false">
+                <svg data-password-icon viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </span>
+          </label>
+          <button class="button button-primary button-full auth-submit" type="submit" data-auth-submit>
+            <span class="button-label">Iniciar sesión <span aria-hidden="true">→</span></span>
+            <svg class="button-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".25" stroke-width="3"></circle><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
+          </button>
+          <button class="button button-secondary button-full auth-magic" type="button" data-send-magic-link>
+            <span class="button-label">Enviar enlace mágico al correo</span>
+            <svg class="button-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".25" stroke-width="3"></circle><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
+          </button>
+          <button class="auth-mode-toggle" type="button" data-toggle-auth-mode>¿Primera vez aquí? Crear cuenta de pareja</button>
         </form>
-        <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
+        <p id="auth-message" class="form-message auth-message" role="status" aria-live="polite"></p>
         <div class="demo-entry">
           <p>También pueden explorar todas las funciones de inmediato en modo demo local.</p>
           <button class="button button-secondary button-full" type="button" data-start-demo>Probar demo local inmediata</button>
@@ -159,12 +178,7 @@
                 <img class="savings-hero-cover" data-active-goal-cover alt="" hidden>
                 <div class="savings-hero-heading">
                   <div><span class="eyebrow">META PRINCIPAL</span><h2 id="active-goal-title" data-active-goal-title></h2></div>
-                  <span class="savings-hero-icon" aria-hidden="true">🎯</span>
-                </div>
-                <div class="goal-cover-actions">
-                  <button class="button button-outline button-small" type="button" data-change-goal-cover>Cambiar portada</button>
-                  <button class="button button-outline button-small" type="button" data-remove-goal-cover hidden>Quitar</button>
-                  <input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" data-goal-cover-input aria-label="Seleccionar foto para la portada de la meta">
+                  <span class="savings-hero-actions" aria-hidden="true"><span class="savings-hero-icon">🎯</span><span class="goal-edit-indicator">✎</span></span>
                 </div>
                 <div class="savings-hero-amounts">
                   <strong data-active-goal-total></strong>
@@ -236,33 +250,35 @@
                   </div>
                 </div>
               </section>
+              <article class="dashboard-metric-card dashboard-balance-card" data-dashboard-fund-card>
+                <span class="dashboard-card-label dashboard-balance-badge">Fondo Disponible</span>
+                <strong class="dashboard-metric-value is-green" data-dashboard-balance data-dashboard-fund>—</strong>
+                <span class="dashboard-card-note">Disponible para gastos del hogar y ahorro</span>
+                <button class="button button-outline dashboard-quick-transfer" type="button" data-dashboard-transfer disabled>Transferir a Meta</button>
+              </article>
               <section class="dashboard-status-grid" aria-label="Estado de cuentas y movimientos">
-                <article class="dashboard-status-card status-pending"><span>Pendientes</span><strong data-dashboard-pending>0</strong><span>saldo por liquidar</span></article>
+                <article class="dashboard-status-card status-savings"><span>Ahorro del mes</span><strong data-dashboard-balance data-dashboard-month-savings>—</strong><span>después de gastos y metas</span></article>
                 <article class="dashboard-status-card status-overdue"><span>Vencidos</span><strong data-dashboard-overdue>0</strong><span>sin fechas vencidas</span></article>
                 <article class="dashboard-status-card status-paid"><span>Pagados</span><strong data-dashboard-paid>0</strong><span>gastos este mes</span></article>
               </section>
-              <section class="dashboard-metrics-grid" aria-label="Resumen financiero">
-                <article class="dashboard-metric-card dashboard-balance-card" data-dashboard-net-card>
-                  <span class="dashboard-card-label dashboard-balance-badge" data-dashboard-balance-label>En balance</span>
-                  <strong class="dashboard-metric-value is-green" data-dashboard-balance data-dashboard-net-balance>—</strong>
-                  <span class="dashboard-card-note" data-dashboard-balance-caption>Balance neto entre ustedes</span>
-                  <button class="button button-outline dashboard-quick-settle" type="button" data-dashboard-settle disabled>Saldar</button>
+              <section class="dashboard-contributions-grid" aria-label="Aportes de este mes">
+                <article class="dashboard-metric-card">
+                  <span class="dashboard-card-label" data-dashboard-my-contribution-label>Aportado por ti</span>
+                  <strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-my-contribution>—</strong>
+                  <span class="dashboard-card-note">Aportes registrados este mes</span>
                 </article>
                 <article class="dashboard-metric-card">
+                  <span class="dashboard-card-label" data-dashboard-partner-contribution-label>Aportado por tu pareja</span>
+                  <strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-partner-contribution>—</strong>
+                  <span class="dashboard-card-note">Aportes registrados este mes</span>
+                </article>
+              </section>
+              <section class="dashboard-wide-grid" aria-label="Proyección de gastos">
+                <article class="dashboard-metric-card dashboard-projection-card">
                   <span class="dashboard-card-label">Proyección a fin de mes</span>
                   <strong class="dashboard-metric-value is-green" data-dashboard-balance data-dashboard-projection>—</strong>
                   <span class="dashboard-card-note" data-dashboard-projection-note>Según el ritmo de gasto actual</span>
                   <span class="dashboard-card-note" data-dashboard-month-caption></span>
-                </article>
-                <article class="dashboard-metric-card">
-                  <span class="dashboard-card-label">Aportado por ti</span>
-                  <strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-my-contribution>—</strong>
-                  <span class="dashboard-card-note">Ingresos registrados por ti</span>
-                </article>
-                <article class="dashboard-metric-card">
-                  <span class="dashboard-card-label">Aportado por tu pareja</span>
-                  <strong class="dashboard-metric-value" data-dashboard-balance data-dashboard-partner-contribution>—</strong>
-                  <span class="dashboard-card-note">Ingresos registrados por tu pareja</span>
                 </article>
               </section>
               <section class="dashboard-savings-grid" aria-label="Ahorro compartido">
@@ -327,12 +343,6 @@
               </form>
               <p id="invite-message" class="form-message" role="status" aria-live="polite"></p>
             </section>
-            <div class="legacy-dashboard-data" hidden>
-              <span id="saldo-disponible"></span><span id="nombre-miembro1"></span><span id="nombre-miembro2"></span>
-              <span id="aporte-miembro1"></span><span id="aporte-miembro2"></span><span id="porcentaje-miembro1"></span><span id="porcentaje-miembro2"></span>
-              <span id="estado-miembro1"></span><span id="estado-miembro2"></span><span id="balance-split-badge"></span>
-              <div id="split-fill-m1"></div><div id="split-fill-m2"></div>
-            </div>
           </section>
         </div>
 
@@ -346,7 +356,7 @@
               <button id="modal-close" class="modal-close-btn" type="button" aria-label="Cerrar modal">×</button>
             </header>
             <div id="modal-pane-gasto" class="modal-tab-pane">
-              <p class="modal-desc">El gasto se dividirá entre ustedes y actualizará el saldo disponible.</p>
+              <p class="modal-desc">Se descontará del fondo común y actualizará el saldo disponible.</p>
               <form id="form-gasto" class="stacked-form" novalidate>
                 <label><span class="label-text">¿En qué gastaron?</span><input name="descripcion" type="text" minlength="2" maxlength="100" placeholder="Ej. Mercado, cena, servicios..." required></label>
                 <label><span class="label-text">Monto del gasto</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="monto" type="number" min="0.01" step="any" inputmode="decimal" placeholder="0" required></div></label>
@@ -364,13 +374,46 @@
           </div>
         </div>
 
-        <dialog id="dashboard-settlement-dialog" class="settlement-dialog" aria-labelledby="settlement-title">
-          <form id="form-settlement" class="stacked-form" novalidate>
-            <header class="settlement-dialog-header"><div><span class="eyebrow">BALANCE COMPARTIDO</span><h2 id="settlement-title">Saldar cuenta</h2></div><button class="dashboard-icon-button" type="button" data-close-settlement aria-label="Cerrar">×</button></header>
-            <p id="settlement-description" class="panel-intro"></p>
-            <input name="payerId" type="hidden"><input name="receiverId" type="hidden">
-            <label><span class="label-text">Monto a saldar</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div></label>
-            <div class="settlement-dialog-actions"><button class="button button-outline" type="button" data-close-settlement>Cancelar</button><button class="button button-primary" type="submit">Confirmar pago</button></div>
+        <dialog id="dashboard-transfer-dialog" class="app-dialog" aria-labelledby="transfer-title">
+          <form id="form-transfer-goal" class="stacked-form" data-form="abonar-meta" data-transfer-form novalidate>
+            <header class="app-dialog-header"><div><span class="eyebrow">FONDO COMPARTIDO</span><h2 id="transfer-title">Transferir a una meta</h2></div><button class="dashboard-icon-button" type="button" data-close-transfer aria-label="Cerrar">×</button></header>
+            <p class="panel-intro">El aporte se descontará del fondo disponible y quedará registrado en Movimientos.</p>
+            <label><span class="label-text">Meta activa</span><select name="goalId" data-transfer-goal required></select></label>
+            <label><span class="label-text">Monto a transferir</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="montoAbonar" type="number" min="0.01" step="any" inputmode="decimal" data-transfer-amount required></div></label>
+            <p class="dashboard-card-note" data-transfer-limit></p>
+            <div class="app-dialog-actions"><button class="button button-outline" type="button" data-close-transfer>Cancelar</button><button class="button button-primary" type="submit">Confirmar transferencia</button></div>
+          </form>
+        </dialog>
+        <dialog id="goal-edit-dialog" class="app-dialog goal-edit-dialog" aria-labelledby="goal-edit-title">
+          <form id="form-edit-goal" class="stacked-form" data-form="editar-meta" novalidate>
+            <header class="app-dialog-header"><div><span class="eyebrow">META COMPARTIDA</span><h2 id="goal-edit-title">Editar meta</h2></div><button class="dashboard-icon-button" type="button" data-close-goal-editor aria-label="Cerrar">×</button></header>
+            <label><span class="label-text">Nombre de la meta</span><input name="titulo" type="text" minlength="3" maxlength="80" required></label>
+            <label><span class="label-text">Monto objetivo</span><div class="input-with-prefix"><span class="input-prefix" aria-hidden="true">$</span><input name="montoObjetivo" type="number" min="0.01" step="any" inputmode="decimal" required></div></label>
+            <label><span class="label-text">Fecha objetivo (opcional)</span><input name="fechaObjetivo" type="date"></label>
+            <label class="goal-primary-toggle">
+              <input type="checkbox" data-primary-goal>
+              <span class="goal-primary-switch" aria-hidden="true"></span>
+              <span data-primary-goal-label>Establecer como Meta Principal</span>
+            </label>
+            <section class="goal-editor-cover" aria-label="Portada de la meta">
+              <div class="goal-editor-cover-preview">
+                <img data-goal-edit-preview alt="Vista previa de la portada" hidden>
+                <span data-goal-edit-cover-placeholder>🎯</span>
+              </div>
+              <div class="goal-editor-cover-actions">
+                <strong>Foto de portada</strong>
+                <div class="goal-cover-actions">
+                  <button class="button button-outline button-small" type="button" data-change-goal-cover>Seleccionar / Cambiar foto</button>
+                  <button class="button button-outline button-small" type="button" data-remove-goal-cover hidden>Quitar foto</button>
+                  <input class="visually-hidden" type="file" accept="image/*" data-goal-cover-input aria-label="Seleccionar foto para la portada de la meta">
+                </div>
+              </div>
+            </section>
+            <p class="dashboard-card-note" data-goal-editor-progress></p>
+            <div class="app-dialog-actions">
+              <button class="button button-outline" type="button" data-close-goal-editor>Cancelar</button>
+              <button class="button button-primary" type="submit">Guardar cambios</button>
+            </div>
           </form>
         </dialog>
       </main>

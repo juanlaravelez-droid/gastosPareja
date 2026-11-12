@@ -8,21 +8,20 @@ import {
 import {
   prepareGoalCover,
   readGoalCoverAsDataUrl,
-} from "./src/application/goal-cover.js?v=1";
+} from "./src/application/goal-cover.js?v=2";
 import {
   calculateAvailableBalance,
   getDashboardSummary,
-} from "./src/application/wallet-service.js?v=2";
-import { addSettlement } from "./src/application/expense-service.js?v=1";
+} from "./src/application/wallet-service.js?v=3";
 import { createDemoStorage } from "./src/infrastructure/demo-storage.js?v=2";
-import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js?v=2";
-import { addExpense, deleteExpense } from "./src/application/expense-service.js?v=1";
+import { createSupabaseRepository } from "./src/infrastructure/supabase-repository.js?v=3";
+import { addExpense, deleteExpense } from "./src/application/expense-service.js?v=2";
 import { createStorageRepository } from "./src/infrastructure/storage-repository.js?v=1";
-import { createRenderer } from "./src/presentation/render.js?v=4";
+import { createRenderer } from "./src/presentation/render.js?v=5";
 import { createUi } from "./src/presentation/ui.js?v=4";
-import { ThemeToggle } from "./src/presentation/components/ThemeToggle.js?v=1";
+import { ThemeToggle } from "./src/presentation/components/ThemeToggle.js?v=2";
 import { AppNavigation } from "./src/presentation/navigation.js?v=2";
-import { DashboardView } from "./src/presentation/views/DashboardView.js?v=2";
+import { DashboardView } from "./src/presentation/views/DashboardView.js?v=3";
 import { formatCurrency } from "./src/presentation/formatCurrency.js";
 let supabaseRepository;
 let appNavigation;
@@ -45,18 +44,15 @@ let state = {
 let workspaceRequest = 0;
 let deferredInstallPrompt = null;
 let installBannerDismissed = false;
+let authMode = "login";
 const { notify, showFormMessage, showRandomTip, showView } = createUi(storageRepository);
 const themeToggle = new ThemeToggle(storageRepository, (message) => notify(message, true));
 const dashboardView = new DashboardView({
   storage: storageRepository,
   formatCurrency,
   onQuickExpense: () => appNavigation?.openExpenseModal("gasto"),
-  onSettle: openSettlementDialog,
-  onNotifications: (summary) => {
-    notify(summary?.settlementAmount
-      ? `Hay ${formatCurrency(summary.settlementAmount)} pendiente por saldar entre ustedes.`
-      : "No tienen saldos pendientes por liquidar.");
-  },
+  onTransfer: openGoalTransferDialog,
+  onNotifications: () => notify("No hay notificaciones nuevas."),
   onError: (error, message) => {
     console.error(message, error);
     notify("No se pudo guardar la preferencia del dashboard.", true);
@@ -68,25 +64,128 @@ const { renderApp } = createRenderer({
   formatCurrency,
   escapeHtml,
   dashboardView,
+  onSelectPrimary: selectPrimaryGoal,
 });
 
-function openSettlementDialog(metrics) {
-  const dialog = document.querySelector("#dashboard-settlement-dialog");
-  const form = document.querySelector("#form-settlement");
-  if (
-    !dialog ||
-    !form ||
-    !metrics?.settlementAmount ||
-    metrics.settlementPayerId !== state.user.id
-  ) return;
+function getPrimaryGoalStorageKey(walletId) {
+  return `duobalance-primary-goal-${walletId}`;
+}
 
-  form.elements.namedItem("payerId").value = metrics.settlementPayerId;
-  form.elements.namedItem("receiverId").value = metrics.settlementReceiverId;
-  form.elements.namedItem("amount").max = String(metrics.settlementAmount);
-  form.elements.namedItem("amount").value = metrics.settlementAmount.toFixed(2);
-  document.querySelector("#settlement-description").textContent =
-    `${metrics.settlementPayerName} debe a ${metrics.settlementReceiverName}.`;
-  dialog.showModal();
+function savePrimaryGoal(goalId) {
+  state.primaryGoalId = goalId;
+  try {
+    storageRepository.setItem(getPrimaryGoalStorageKey(state.wallet.id), goalId);
+  } catch (error) {
+    console.error("No se pudo guardar la meta principal en este dispositivo.", error);
+    notify("La meta principal cambió, pero no se pudo guardar esta preferencia en el dispositivo.", true);
+  }
+}
+
+function selectPrimaryGoal(goalId) {
+  savePrimaryGoal(goalId);
+  notify("Meta principal actualizada.");
+}
+
+function loadPrimaryGoal(walletId, goals) {
+  try {
+    const savedGoalId = storageRepository.getItem(getPrimaryGoalStorageKey(walletId));
+    return goals.some((goal) => goal.id === savedGoalId) ? savedGoalId : null;
+  } catch (error) {
+    console.error("No se pudo leer la meta principal guardada.", error);
+    notify("No se pudo recuperar la meta principal guardada en este dispositivo.", true);
+    return null;
+  }
+}
+
+function openGoalEditor(goalId) {
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal) {
+    notify("No se encontró la meta seleccionada.", true);
+    return;
+  }
+
+  const form = document.querySelector("#form-edit-goal");
+  form.dataset.goalId = goal.id;
+  form.elements.namedItem("titulo").value = goal.title;
+  form.elements.namedItem("montoObjetivo").value = Number(goal.target_amount);
+  form.elements.namedItem("montoObjetivo").min = String(Number(goal.current_amount));
+  form.elements.namedItem("fechaObjetivo").value = goal.target_date || "";
+  const primaryToggle = form.querySelector("[data-primary-goal]");
+  const isPrimary = state.primaryGoalId === goal.id;
+  primaryToggle.checked = isPrimary;
+  primaryToggle.disabled = isPrimary;
+  form.querySelector("[data-primary-goal-label]").textContent = isPrimary
+    ? "Esta es actualmente tu meta principal"
+    : "Establecer como Meta Principal";
+  document.querySelector("#goal-edit-title").textContent = `Editar ${goal.title}`;
+  updateGoalEditorProgress(goal);
+  updateGoalEditorPreview(goal);
+  document.querySelector("#goal-edit-dialog").showModal();
+  form.elements.namedItem("titulo").focus();
+}
+
+function updateGoalEditorProgress(goal = state.goals.find((item) =>
+  item.id === document.querySelector("#form-edit-goal").dataset.goalId)) {
+  if (!goal) return;
+  const targetAmount = Number(document.querySelector('#form-edit-goal [name="montoObjetivo"]').value);
+  const savedAmount = Number(goal.current_amount);
+  const progress = Number.isFinite(targetAmount) && targetAmount > 0
+    ? Math.min(100, Math.round(savedAmount / targetAmount * 100))
+    : 0;
+  document.querySelector("[data-goal-editor-progress]").textContent =
+    `${formatCurrency(savedAmount)} ahorrados · ${progress}% del nuevo objetivo`;
+}
+
+function updateGoalEditorPreview(goal) {
+  const preview = document.querySelector("[data-goal-edit-preview]");
+  const placeholder = document.querySelector("[data-goal-edit-cover-placeholder]");
+  const removeButton = document.querySelector("[data-remove-goal-cover]");
+  const input = document.querySelector("[data-goal-cover-input]");
+  const imageUrl = goal.cover_image_url || "";
+  if (imageUrl) {
+    preview.src = imageUrl;
+    preview.hidden = false;
+    placeholder.hidden = true;
+  } else {
+    preview.removeAttribute("src");
+    preview.hidden = true;
+    placeholder.hidden = false;
+  }
+  input.dataset.goalId = goal.id;
+  removeButton.dataset.goalId = goal.id;
+  removeButton.hidden = !imageUrl;
+}
+
+function getGoalTransferLimit(goalId) {
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal) return 0;
+  const monthlyAvailable = getDashboardSummary(state).monthlyAvailableBalance;
+  const walletAvailable = calculateAvailableBalance(state);
+  const goalRemaining = Number(goal.target_amount) - Number(goal.current_amount);
+  return Math.max(0, Math.min(monthlyAvailable, walletAvailable, goalRemaining));
+}
+
+function updateGoalTransferForm(resetAmount = false) {
+  const form = document.querySelector("#form-transfer-goal");
+  const select = form.elements.namedItem("goalId");
+  const amountInput = form.elements.namedItem("montoAbonar");
+  const goalId = select.value;
+  const limit = getGoalTransferLimit(goalId);
+  form.dataset.metaId = goalId;
+  amountInput.max = String(limit);
+  if (resetAmount) amountInput.value = limit > 0 ? limit.toFixed(2) : "";
+  document.querySelector("[data-transfer-limit]").textContent =
+    `Máximo disponible para esta meta: ${formatCurrency(limit)}`;
+}
+
+function openGoalTransferDialog() {
+  const form = document.querySelector("#form-transfer-goal");
+  if (!form.elements.namedItem("goalId").value) {
+    notify("Primero crea una meta activa para transferir el ahorro.", true);
+    return;
+  }
+  updateGoalTransferForm(true);
+  document.querySelector("#dashboard-transfer-dialog").showModal();
 }
 
 function escapeHtml(value) {
@@ -180,9 +279,78 @@ function getErrorMessage(error) {
   return error?.message || "Ocurrió un error inesperado. Inténtalo de nuevo.";
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function setAuthMessage(message, type = "info") {
+  showFormMessage("#auth-message", message, type === "error");
+  const element = document.querySelector("#auth-message");
+  element.classList.toggle("is-success", type === "success");
+  element.classList.toggle("is-loading", type === "loading");
+}
+
+function setAuthButtonLoading(button, isLoading, loadingText) {
+  const label = button.querySelector(".button-label");
+  if (isLoading) {
+    button.dataset.idleContent = label.innerHTML;
+    label.textContent = loadingText;
+    button.disabled = true;
+    button.classList.add("state-loading");
+    return;
+  }
+  label.innerHTML = button.dataset.idleContent || label.innerHTML;
+  button.disabled = false;
+  button.classList.remove("state-loading");
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const isSignup = mode === "signup";
+  document.querySelector("#auth-title").textContent = isSignup
+    ? "Crear cuenta de pareja"
+    : "Entren a su billetera";
+  document.querySelector("#auth-intro").textContent = isSignup
+    ? "Creen su cuenta para empezar. Después podrán configurar la billetera compartida e invitar a su pareja."
+    : "Inicien sesión con su correo y contraseña. También pueden pedir un enlace mágico al correo.";
+  document.querySelector("#signup-name-field").hidden = !isSignup;
+  document.querySelector("#login-password").autocomplete = isSignup ? "new-password" : "current-password";
+  document.querySelector("#login-password").value = "";
+  document.querySelector("[data-auth-submit] .button-label").innerHTML = isSignup
+    ? 'Crear cuenta <span aria-hidden="true">→</span>'
+    : 'Iniciar sesión <span aria-hidden="true">→</span>';
+  document.querySelector("[data-send-magic-link]").hidden = isSignup;
+  document.querySelector("[data-toggle-auth-mode]").textContent = isSignup
+    ? "¿Ya tienen cuenta? Iniciar sesión"
+    : "¿Primera vez aquí? Crear cuenta de pareja";
+  setAuthMessage("");
+}
+
+function togglePasswordVisibility() {
+  const input = document.querySelector("#login-password");
+  const button = document.querySelector("[data-toggle-password]");
+  const icon = button.querySelector("[data-password-icon]");
+  const isVisible = input.type === "text";
+  input.type = isVisible ? "password" : "text";
+  button.setAttribute("aria-label", isVisible ? "Mostrar contraseña" : "Ocultar contraseña");
+  button.setAttribute("aria-pressed", String(!isVisible));
+  icon.innerHTML = isVisible
+    ? '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>'
+    : '<path d="m3 3 18 18"></path><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path><path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a15 15 0 0 1-3.1 3.8M6.2 6.2C3.5 8.1 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4-.8"></path>';
+}
+
 function getLoginErrorMessage(error) {
   if (error?.status === 429 || /rate limit/i.test(error?.message || "")) {
     return "Supabase limitó temporalmente el envío del correo. Espera al menos un minuto antes de volver a intentarlo. Si persiste, configura un proveedor SMTP propio y revisa Authentication → Rate Limits en Supabase.";
+  }
+  if (/invalid login credentials/i.test(error?.message || "")) {
+    return "El correo o la contraseña no son correctos.";
+  }
+  if (/user already registered|already registered/i.test(error?.message || "")) {
+    return "Ya existe una cuenta con ese correo. Inicien sesión o prueben con otra dirección.";
+  }
+  if (/password.*(weak|short|least|minimum)/i.test(error?.message || "")) {
+    return "La contraseña no cumple los requisitos de seguridad. Prueba con una contraseña más larga.";
   }
   return getErrorMessage(error);
 }
@@ -216,6 +384,7 @@ function saveDemoState() {
 function commitDemoChange(update, message) {
   const previous = {
     wallet: { ...state.wallet },
+    primaryGoalId: state.primaryGoalId,
     incomes: state.incomes.map((income) => ({ ...income })),
     expenses: state.expenses.map((expense) => ({ ...expense })),
     settlements: (state.settlements || []).map((settlement) => ({ ...settlement })),
@@ -285,6 +454,7 @@ function dismissDemoBanner() {
 function startDemo() {
   try {
     state = demoStorage.readDemoState();
+    state.primaryGoalId = loadPrimaryGoal(state.wallet.id, state.goals);
     demoMode = true;
     if (!saveDemoState()) {
       demoMode = false;
@@ -306,6 +476,7 @@ function restoreDemoSession() {
   try {
     if (!demoStorage.isActive()) return false;
     state = demoStorage.readDemoState();
+    state.primaryGoalId = loadPrimaryGoal(state.wallet.id, state.goals);
     demoMode = true;
     setDemoHeader(true);
     renderApp();
@@ -348,6 +519,9 @@ async function loadWorkspace(user) {
         goals: [],
         goalContributions: [],
       };
+      state.primaryGoalId = null;
+      document.querySelector('#form-wallet [name="miembro1"]').value =
+        String(user.user_metadata?.display_name || "").trim();
       document.querySelector("#setup-title").textContent = "Crear billetera en pareja";
       document.querySelector("#form-wallet").hidden = false;
       showView("setup-view");
@@ -355,6 +529,7 @@ async function loadWorkspace(user) {
     }
 
     state = { user, ...workspace };
+    state.primaryGoalId = loadPrimaryGoal(state.wallet.id, state.goals);
     renderApp();
     showRandomTip();
     showView("dashboard");
@@ -374,50 +549,88 @@ async function loadWorkspace(user) {
 async function handleLogin(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (form.querySelector("[data-auth-submit]").disabled) return;
+  const submittedMode = authMode;
   const formData = new FormData(form);
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
-  if (!email || !password) {
-    showFormMessage("#auth-message", "Escribe tu correo y contraseña.", true);
+  if (!isValidEmail(email)) {
+    setAuthMessage("Escribe un correo electrónico válido.", "error");
+    document.querySelector("#login-email").focus();
+    return;
+  }
+  if (!password) {
+    setAuthMessage("Escribe tu contraseña.", "error");
+    document.querySelector("#login-password").focus();
     return;
   }
 
-  const button = form.querySelector('button[type="submit"]');
-  button.disabled = true;
-  showFormMessage("#auth-message", "Iniciando sesión...");
+  const submitButton = form.querySelector("[data-auth-submit]");
+  const magicButton = form.querySelector("[data-send-magic-link]");
+  const modeToggle = document.querySelector("[data-toggle-auth-mode]");
+  setAuthButtonLoading(submitButton, true, submittedMode === "signup" ? "Creando cuenta..." : "Entrando...");
+  magicButton.disabled = true;
+  modeToggle.disabled = true;
+  setAuthMessage(submittedMode === "signup" ? "Creando su cuenta..." : "Iniciando sesión...", "loading");
   try {
-    const { error } = await supabaseRepository.signInWithPassword(email, password);
+    const result = submittedMode === "signup"
+      ? await supabaseRepository.signUp(
+        email,
+        password,
+        String(formData.get("displayName") || "").trim(),
+        window.location.origin + window.location.pathname,
+      )
+      : await supabaseRepository.signInWithPassword(email, password);
+    const { data, error } = result;
     if (error) throw error;
+    if (submittedMode === "signup" && !data.session) {
+      setAuthMessage(
+        "Cuenta creada. Revisen su correo y confirmen la dirección para continuar.",
+        "success",
+      );
+    }
   } catch (error) {
-    console.error("No se pudo iniciar sesión con contraseña.", error);
-    showFormMessage("#auth-message", getErrorMessage(error), true);
+    console.error(submittedMode === "signup" ? "No se pudo crear la cuenta." : "No se pudo iniciar sesión con contraseña.", error);
+    setAuthMessage(getLoginErrorMessage(error), "error");
   } finally {
-    button.disabled = false;
+    setAuthButtonLoading(submitButton, false);
+    magicButton.disabled = false;
+    modeToggle.disabled = false;
   }
 }
 
 async function handleMagicLink() {
   const email = String(document.querySelector("#login-email").value || "").trim().toLowerCase();
-  if (!email) {
-    showFormMessage("#auth-message", "Escribe un correo electrónico válido.", true);
+  if (!isValidEmail(email)) {
+    setAuthMessage("Escribe un correo electrónico válido.", "error");
+    document.querySelector("#login-email").focus();
     return;
   }
 
   const button = document.querySelector("[data-send-magic-link]");
-  button.disabled = true;
-  showFormMessage("#auth-message", "Enviando el enlace...");
+  const submitButton = document.querySelector("[data-auth-submit]");
+  const modeToggle = document.querySelector("[data-toggle-auth-mode]");
+  setAuthButtonLoading(button, true, "Enviando enlace...");
+  submitButton.disabled = true;
+  modeToggle.disabled = true;
+  setAuthMessage("Enviando el enlace...", "loading");
   try {
     const { error } = await supabaseRepository.signInWithOtp(
       email,
       window.location.origin + window.location.pathname,
     );
     if (error) throw error;
-    showFormMessage("#auth-message", "Revisa tu correo y abre el enlace para entrar.");
+    setAuthMessage(
+      "¡Enlace enviado! Revisen su bandeja de entrada o carpeta de spam para entrar.",
+      "success",
+    );
   } catch (error) {
     console.error("No se pudo enviar el enlace de acceso.", error);
-    showFormMessage("#auth-message", getLoginErrorMessage(error), true);
+    setAuthMessage(getLoginErrorMessage(error), "error");
   } finally {
-    button.disabled = false;
+    setAuthButtonLoading(button, false);
+    submitButton.disabled = false;
+    modeToggle.disabled = false;
   }
 }
 
@@ -546,69 +759,6 @@ async function handleNewExpense(event) {
   if (await refreshAndNotify("Gasto registrado y descontado del saldo.")) appNavigation.closeExpenseModal();
 }
 
-async function handleRegisterSettlement(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const data = new FormData(form);
-  const payerId = String(data.get("payerId") || "");
-  const receiverId = String(data.get("receiverId") || "");
-  const amount = Number(data.get("amount"));
-  const summary = getDashboardSummary(state);
-  const amountInCents = amount * 100;
-  if (
-    !Number.isFinite(amount) ||
-    amount <= 0 ||
-    Math.abs(amountInCents - Math.round(amountInCents)) > Number.EPSILON * Math.max(1, amountInCents)
-  ) {
-    notify("Ingresa un monto válido con máximo dos decimales.", true);
-    return;
-  }
-  if (
-    payerId !== summary.settlementPayerId ||
-    receiverId !== summary.settlementReceiverId ||
-    payerId !== state.user.id ||
-    amount > summary.settlementAmount
-  ) {
-    notify("El saldo pendiente cambió. Actualiza la página antes de registrar la liquidación.", true);
-    return;
-  }
-
-  if (demoMode) {
-    const saved = commitDemoChange(() => {
-      state.settlements = addSettlement(state.settlements || [], {
-        id: crypto.randomUUID(),
-        payer_id: payerId,
-        receiver_id: receiverId,
-        amount,
-        created_at: new Date().toISOString(),
-      });
-    }, "Liquidación registrada en la demo.");
-    if (saved) document.querySelector("#dashboard-settlement-dialog").close();
-    return;
-  }
-
-  const button = form.querySelector('button[type="submit"]');
-  button.disabled = true;
-  try {
-    const { error } = await supabaseRepository.registerSettlement(
-      state.wallet.id,
-      payerId,
-      receiverId,
-      amount,
-    );
-    if (error) throw error;
-    if (await loadWorkspace(state.user)) {
-      document.querySelector("#dashboard-settlement-dialog").close();
-      notify("Liquidación registrada.");
-    }
-  } catch (error) {
-    console.error("No se pudo registrar la liquidación.", error);
-    notify(getErrorMessage(error), true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
 async function handleNewGoal(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -652,6 +802,7 @@ async function handleUpdateGoal(form) {
   const title = String(data.get("titulo") || "").trim();
   const targetAmount = Number(data.get("montoObjetivo"));
   const targetDate = String(data.get("fechaObjetivo") || "").trim() || null;
+  const promoteToPrimary = form.querySelector("[data-primary-goal]").checked;
   const goal = state.goals.find((item) => item.id === form.dataset.goalId);
   if (!goal) {
     notify("No se encontró la meta seleccionada.", true);
@@ -669,11 +820,19 @@ async function handleUpdateGoal(form) {
   }
 
   if (demoMode) {
-    commitDemoChange(() => {
+    const saved = commitDemoChange(() => {
       goal.title = title;
       goal.target_amount = targetAmount;
       goal.target_date = targetDate;
-    }, "Meta actualizada en la demo.");
+      if (promoteToPrimary) state.primaryGoalId = goal.id;
+    }, "Meta actualizada");
+    if (saved) {
+      if (promoteToPrimary) savePrimaryGoal(goal.id);
+      document.querySelector("#goal-edit-dialog").close();
+      if (promoteToPrimary) {
+        document.querySelector(".savings-hero-card").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
     return;
   }
 
@@ -689,20 +848,30 @@ async function handleUpdateGoal(form) {
     notify(getErrorMessage(error), true);
     return;
   }
-  await refreshAndNotify("Meta actualizada.");
+  if (promoteToPrimary) savePrimaryGoal(goal.id);
+  if (await refreshAndNotify("Meta actualizada")) {
+    document.querySelector("#goal-edit-dialog").close();
+    if (promoteToPrimary) {
+      document.querySelector(".savings-hero-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 }
 
 function handleGoalCoverActions(event) {
   const changeButton = event.target.closest("[data-change-goal-cover]");
   if (changeButton) {
-    changeButton.closest(".savings-hero-card")
-      .querySelector("[data-goal-cover-input]")
-      .click();
+    event.preventDefault();
+    event.stopPropagation();
+    changeButton.closest(".goal-cover-actions").querySelector("[data-goal-cover-input]").click();
     return;
   }
 
   const removeButton = event.target.closest("[data-remove-goal-cover]");
-  if (removeButton) void handleRemoveGoalCover(removeButton.dataset.goalId);
+  if (removeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    void handleRemoveGoalCover(removeButton.dataset.goalId);
+  }
 }
 
 async function deleteStoredGoalCover(path) {
@@ -737,10 +906,13 @@ async function handleGoalCoverSelection(event) {
     const coverBlob = await prepareGoalCover(file);
     if (demoMode) {
       const coverImageUrl = await readGoalCoverAsDataUrl(coverBlob);
-      commitDemoChange(() => {
+      const saved = commitDemoChange(() => {
         goal.cover_image_url = coverImageUrl;
         delete goal.cover_image_path;
       }, "Portada actualizada en esta demo.");
+      if (saved) {
+        updateGoalEditorPreview(state.goals.find((item) => item.id === goal.id));
+      }
       return;
     }
 
@@ -764,6 +936,7 @@ async function handleGoalCoverSelection(event) {
     }
 
     if (await loadWorkspace(state.user)) {
+      updateGoalEditorPreview(state.goals.find((item) => item.id === goal.id));
       notify(cleanupError
         ? "Portada actualizada. No se pudo eliminar el archivo de la portada anterior."
         : "Portada compartida actualizada.");
@@ -790,9 +963,12 @@ async function handleRemoveGoalCover(goalId) {
   if (!goal?.cover_image_url) return;
 
   if (demoMode) {
-    commitDemoChange(() => {
+    const saved = commitDemoChange(() => {
       delete goal.cover_image_url;
     }, "Portada eliminada de la demo.");
+    if (saved) {
+      updateGoalEditorPreview(state.goals.find((item) => item.id === goal.id));
+    }
     return;
   }
 
@@ -805,6 +981,7 @@ async function handleRemoveGoalCover(goalId) {
       ? await deleteStoredGoalCover(previousPath)
       : null;
     if (await loadWorkspace(state.user)) {
+      updateGoalEditorPreview(state.goals.find((item) => item.id === goal.id));
       notify(cleanupError
         ? "Portada quitada. No se pudo eliminar el archivo anterior."
         : "Portada quitada.");
@@ -848,45 +1025,45 @@ async function handleDeleteGoal(goalId) {
 async function handleContribute(event) {
   event.preventDefault();
   const form = event.target.closest('form[data-form="abonar-meta"]');
-  if (!form) {
-    const editForm = event.target.closest('form[data-form="editar-meta"]');
-    if (editForm) await handleUpdateGoal(editForm);
+  if (!form) return;
+  const isTransfer = form.hasAttribute("data-transfer-form");
+  const goalId = isTransfer
+    ? String(form.elements.namedItem("goalId").value)
+    : form.dataset.metaId;
+  const amount = Number(new FormData(form).get("montoAbonar"));
+  const availableBalance = isTransfer
+    ? Math.min(calculateAvailableBalance(state), getDashboardSummary(state).monthlyAvailableBalance)
+    : calculateAvailableBalance(state);
+  const goal = state.goals.find((item) => item.id === goalId);
+  const validationError = validateGoalContribution({
+    amount,
+    goal,
+    availableBalance,
+  });
+  if (validationError) {
+    notify(validationError, true);
     return;
   }
-  const amount = Number(new FormData(form).get("montoAbonar"));
+
   if (demoMode) {
-    const goal = state.goals.find((item) => item.id === form.dataset.metaId);
-    const validationError = validateGoalContribution({
-      amount,
-      goal,
-      availableBalance: calculateAvailableBalance(state),
-    });
-    if (validationError) {
-      notify(validationError, true);
-      return;
-    }
-    commitDemoChange(() => {
+    const saved = commitDemoChange(() => {
       goal.current_amount += amount;
       state.goalContributions = state.goalContributions || [];
       state.goalContributions.push({
         id: crypto.randomUUID(),
-        goal_id: goal.id,
+        goal_id: goalId,
         contributor_id: state.user.id,
         amount,
         created_at: new Date().toISOString(),
       });
-    }, "Aporte asignado a la meta en la demo.");
-    return;
-  }
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    notify("El aporte debe ser un monto mayor que cero.", true);
+    }, isTransfer ? "Transferencia a meta registrada." : "Aporte asignado a la meta en la demo.");
+    if (saved && isTransfer) document.querySelector("#dashboard-transfer-dialog").close();
     return;
   }
 
   const { error } = await supabaseRepository.contributeToGoal(
     state.wallet.id,
-    form.dataset.metaId,
+    goalId,
     amount,
   );
   if (error) {
@@ -894,7 +1071,9 @@ async function handleContribute(event) {
     notify(getErrorMessage(error), true);
     return;
   }
-  await refreshAndNotify("Aporte asignado a la meta.");
+  if (await refreshAndNotify(isTransfer ? "Transferencia a meta registrada." : "Aporte asignado a la meta.")) {
+    if (isTransfer) document.querySelector("#dashboard-transfer-dialog").close();
+  }
 }
 
 async function handleDeleteIncome(event) {
@@ -977,24 +1156,28 @@ async function handleDeleteExpense(event) {
 function handleGoalActions(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
-
-  if (button.dataset.action === "editar-meta") {
-    const card = button.closest(".goal-card");
-    const form = card?.querySelector('form[data-form="editar-meta"]');
-    if (!form) return;
-    form.hidden = false;
-    button.setAttribute("aria-expanded", "true");
-    form.querySelector('input[name="titulo"]').focus();
-  } else if (button.dataset.action === "cancelar-edicion-meta") {
-    const card = button.closest(".goal-card");
-    const form = card?.querySelector('form[data-form="editar-meta"]');
-    if (!form) return;
-    form.reset();
-    form.hidden = true;
-    card.querySelector('[data-action="editar-meta"]')?.setAttribute("aria-expanded", "false");
-  } else if (button.dataset.action === "eliminar-meta") {
+  event.stopPropagation();
+  if (button.dataset.action === "eliminar-meta") {
     void handleDeleteGoal(button.dataset.goalId);
   }
+}
+
+function handleGoalCardClick(event) {
+  if (event.target.closest("button, a, input, select, textarea, form, label")) {
+    event.stopPropagation();
+    return;
+  }
+  const card = event.target.closest("[data-edit-goal]");
+  if (card) openGoalEditor(card.dataset.editGoal);
+}
+
+function handleGoalCardKeyDown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  if (event.target.closest("button, a, input, select, textarea, form, label")) return;
+  const card = event.target.closest("[data-edit-goal]");
+  if (!card) return;
+  event.preventDefault();
+  openGoalEditor(card.dataset.editGoal);
 }
 
 async function handleInvite(event) {
@@ -1108,20 +1291,49 @@ function initializeEventHandlers() {
   document.querySelector("[data-dismiss-demo-notice]").addEventListener("click", dismissDemoBanner);
   document.querySelector("#form-login").addEventListener("submit", handleLogin);
   document.querySelector("[data-send-magic-link]").addEventListener("click", handleMagicLink);
+  document.querySelector("[data-toggle-password]").addEventListener("click", togglePasswordVisibility);
+  document.querySelector("[data-toggle-auth-mode]").addEventListener("click", () => {
+    setAuthMode(authMode === "login" ? "signup" : "login");
+  });
   document.querySelector("#form-wallet").addEventListener("submit", handleCreateWallet);
   document.querySelector("#form-nombres").addEventListener("submit", handleSaveNames);
   document.querySelector("#form-ingreso").addEventListener("submit", handleNewIncome);
   document.querySelector("#form-gasto").addEventListener("submit", handleNewExpense);
-  document.querySelector("#form-settlement").addEventListener("submit", handleRegisterSettlement);
-  document.querySelectorAll("[data-close-settlement]").forEach((button) => {
+  document.querySelector("#form-edit-goal").addEventListener("submit", (event) => {
+    event.preventDefault();
+    void handleUpdateGoal(event.currentTarget);
+  });
+  document.querySelector('#form-edit-goal [name="montoObjetivo"]').addEventListener("input", () => {
+    updateGoalEditorProgress();
+  });
+  document.querySelector("#form-transfer-goal").addEventListener("submit", handleContribute);
+  document.querySelector("[data-transfer-goal]").addEventListener("change", () => {
+    updateGoalTransferForm(true);
+  });
+  document.querySelector("#dashboard-transfer-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  document.querySelectorAll("[data-close-transfer]").forEach((button) => {
     button.addEventListener("click", () => {
-      document.querySelector("#dashboard-settlement-dialog").close();
+      document.querySelector("#dashboard-transfer-dialog").close();
+    });
+  });
+  document.querySelector("#goal-edit-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
+  document.querySelectorAll("[data-close-goal-editor]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelector("#goal-edit-dialog").close();
     });
   });
   document.querySelector("#form-meta").addEventListener("submit", handleNewGoal);
   document.querySelector("#form-invitacion").addEventListener("submit", handleInvite);
   document.querySelector("#view-goals").addEventListener("click", handleGoalCoverActions);
+  document.querySelector("#view-goals").addEventListener("click", handleGoalCardClick);
+  document.querySelector("#view-goals").addEventListener("keydown", handleGoalCardKeyDown);
   document.querySelector("#view-goals").addEventListener("change", handleGoalCoverSelection);
+  document.querySelector("#goal-edit-dialog").addEventListener("click", handleGoalCoverActions);
+  document.querySelector("#goal-edit-dialog").addEventListener("change", handleGoalCoverSelection);
   document.querySelector("#goals-list").addEventListener("submit", handleContribute);
   document.querySelector("#goals-list").addEventListener("click", handleGoalActions);
   document.querySelector("#income-list").addEventListener("click", handleDeleteIncome);
@@ -1137,6 +1349,7 @@ function listenForAuthChanges() {
     if (event === "INITIAL_SESSION" || demoMode) return;
     if (!session) {
       workspaceRequest += 1;
+      setAuthMode("login");
       document.querySelector("#session-email").hidden = true;
       document.querySelector("#logout-button").hidden = true;
       document.querySelector(".dashboard-user-actions").hidden = true;
@@ -1170,7 +1383,7 @@ async function initializeApp() {
     }
   }
 
-  if (!hasSupabaseConfiguration) {
+  if (!hasSupabaseConfiguration()) {
     showView("config-view");
     return;
   }

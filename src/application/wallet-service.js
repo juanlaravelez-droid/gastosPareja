@@ -3,7 +3,6 @@ import {
   calculateGoalProgress,
   totalOf,
 } from "../domain/finance.js";
-import { calculateExpenseSplit } from "./expense-service.js?v=1";
 
 export {
   calculateAvailableBalance,
@@ -103,53 +102,33 @@ export function getSavingsContributionSummary(
 }
 
 export function getWalletSummary(state) {
-  const contributions = state.members
-    .map((member) => ({
-      memberIndex: member.member_index,
-      amount: totalOf(state.incomes.filter((income) => income.author_id === member.user_id)),
-    }))
-    .sort((first, second) => first.memberIndex - second.memberIndex);
-  const firstContribution = contributions[0]?.amount || 0;
-  const secondContribution = contributions[1]?.amount || 0;
-  const totalContributions = firstContribution + secondContribution;
-  const difference = Math.round((firstContribution - secondContribution) * 100) / 100;
-  const firstPercentage = totalContributions > 0
-    ? Math.round((firstContribution / totalContributions) * 100)
-    : 50;
-
   return {
     availableBalance: calculateAvailableBalance(state),
     incomeTotal: totalOf(state.incomes),
     expenseTotal: totalOf(state.expenses),
     savedTotal: totalOf(state.goals, "current_amount"),
-    contributions: [firstContribution, secondContribution],
-    percentages: [firstPercentage, totalContributions > 0 ? 100 - firstPercentage : 50],
-    contributionStatus: totalContributions === 0
-      ? "none"
-      : Math.abs(difference) < 1
-        ? "balanced"
-        : difference > 0
-          ? "first-ahead"
-          : "second-ahead",
-    contributionDifference: Math.abs(difference),
-    expenseSplit: calculateExpenseSplit(state.expenses, state.members, state.settlements || []),
   };
 }
 
 export function getDashboardSummary(state, now = new Date()) {
   const summary = getWalletSummary(state);
-  const currentUser = summary.expenseSplit.find((member) => member.userId === state.user.id);
-  const partner = summary.expenseSplit.find((member) => member.userId !== state.user.id);
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
-  const monthExpenses = state.expenses.filter((expense) => {
-    const createdAt = new Date(expense.created_at);
+  const isCurrentMonth = (record) => {
+    const createdAt = new Date(record.created_at);
     return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear;
-  });
+  };
+  const monthExpenses = state.expenses.filter(isCurrentMonth);
+  const monthIncomes = state.incomes.filter(isCurrentMonth);
+  const monthGoalContributions = (state.goalContributions || []).filter(isCurrentMonth);
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysElapsed = now.getDate();
   const monthExpenseTotal = totalOf(monthExpenses);
-  const settlementAmount = Math.round(Math.abs(currentUser?.netBalance || 0) * 100) / 100;
+  const monthIncomeTotal = totalOf(monthIncomes);
+  const monthGoalContributionTotal = totalOf(monthGoalContributions);
+  const monthlyAvailableBalance = Math.round(
+    (monthIncomeTotal - monthExpenseTotal - monthGoalContributionTotal) * 100,
+  ) / 100;
   const monthLabel = new Intl.DateTimeFormat("es", { month: "long" }).format(now);
   const capitalizedMonth = `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}`;
   const currentUserName = getMemberName(state, state.user.id);
@@ -157,25 +136,18 @@ export function getDashboardSummary(state, now = new Date()) {
   return {
     monthLabel: capitalizedMonth,
     currentUserId: state.user.id,
-    pendingCount: settlementAmount > 0 ? 1 : 0,
     overdueCount: 0,
     paidCount: monthExpenses.length,
-    netBalance: currentUser?.netBalance || 0,
-    settlementAmount,
-    settlementPayerId: (currentUser?.netBalance || 0) < 0 ? state.user.id : partner?.userId || null,
-    settlementReceiverId: (currentUser?.netBalance || 0) < 0 ? partner?.userId || null : state.user.id,
-    settlementPayerName: (currentUser?.netBalance || 0) < 0
-      ? getMemberName(state, state.user.id)
-      : getMemberName(state, partner?.userId),
-    settlementReceiverName: (currentUser?.netBalance || 0) < 0
-      ? getMemberName(state, partner?.userId)
-      : getMemberName(state, state.user.id),
+    walletAvailableBalance: summary.availableBalance,
+    monthlyAvailableBalance,
+    monthIncomeTotal,
+    monthGoalContributionTotal,
     monthExpenseTotal,
     projectedMonthExpense: daysElapsed > 0
       ? Math.round((monthExpenseTotal / daysElapsed * daysInMonth) * 100) / 100
       : monthExpenseTotal,
-    personalContribution: summary.contributions[state.memberIndex - 1] || 0,
-    partnerContribution: summary.contributions[(state.memberIndex === 1 ? 1 : 0)] || 0,
+    personalContribution: totalOf(monthIncomes.filter((income) => income.author_id === state.user.id)),
+    partnerContribution: totalOf(monthIncomes.filter((income) => income.author_id !== state.user.id)),
     incomeTotal: summary.incomeTotal,
     expenseTotal: summary.expenseTotal,
     savedTotal: summary.savedTotal,
@@ -186,7 +158,10 @@ export function getDashboardSummary(state, now = new Date()) {
       .slice(0, 2)
       .map((part) => part[0].toLocaleUpperCase("es"))
       .join(""),
-    partnerName: getMemberName(state, partner?.userId),
+    partnerName: getMemberName(
+      state,
+      state.members.find((member) => member.user_id !== state.user.id)?.user_id,
+    ),
   };
 }
 

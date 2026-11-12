@@ -43,6 +43,12 @@ export class ThemeToggle {
   apply(theme) {
     const isLight = theme === "light";
     document.documentElement.dataset.theme = isLight ? "light" : "dark";
+    const themeColor = getComputedStyle(document.documentElement)
+      .getPropertyValue("--bg-app")
+      .trim();
+    const resolvedThemeColor = isLight ? "#e3eee6" : themeColor || "#172d4d";
+    document.documentElement.style.backgroundColor = resolvedThemeColor;
+    document.body.style.backgroundColor = resolvedThemeColor;
     this.button?.setAttribute("aria-pressed", String(isLight));
     this.button?.setAttribute("aria-label", `Cambiar al tema ${isLight ? "oscuro" : "claro"}`);
     const icon = this.button?.querySelector(".theme-icon");
@@ -51,7 +57,7 @@ export class ThemeToggle {
     if (label) label.textContent = isLight ? "Tema oscuro" : "Tema claro";
     document.querySelector('meta[name="theme-color"]')?.setAttribute(
       "content",
-      "#111d35",
+      resolvedThemeColor,
     );
   }
 }
