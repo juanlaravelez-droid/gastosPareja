@@ -81,3 +81,14 @@ test("shows the main goal and other plans before monthly contributions and advic
   assert.ok(tipPosition > monthlyPosition && tipPosition < monthlyEndPosition);
   assert.doesNotMatch(settingsView, /tip-card/);
 });
+
+test("does not render a pending settlement card in the Balance view", async () => {
+  const html = await readFile(path.join(root, "index.html"), "utf8");
+  const balanceView = html.slice(
+    html.indexOf('<section id="view-balance"'),
+    html.indexOf('<section id="view-movements"'),
+  );
+
+  assert.doesNotMatch(balanceView, /Pendiente por saldar|dashboard-settlement-card|data-dashboard-settlement/);
+  assert.match(balanceView, /Fondo común · total ahorrado/);
+});

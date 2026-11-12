@@ -139,15 +139,11 @@ export class DashboardView {
       monthCaption.classList.toggle("is-masked", !this.balancesVisible);
     }
     setText("[data-dashboard-projection-note]", "Proyección según el ritmo de gasto actual");
-    setText("[data-dashboard-pending-caption]", summaryData.settlementAmount > 0
-      ? `${summaryData.settlementPayerName} debe a ${summaryData.settlementReceiverName}`
-      : "No hay saldos pendientes entre ustedes");
     setText("[data-dashboard-upcoming]", "Todo en orden para el próximo mes");
     setMoney("[data-dashboard-net-balance]", Math.abs(summaryData.netBalance));
     setMoney("[data-dashboard-projection]", summaryData.projectedMonthExpense);
     setMoney("[data-dashboard-my-contribution]", summaryData.personalContribution);
     setMoney("[data-dashboard-partner-contribution]", summaryData.partnerContribution);
-    setMoney("[data-dashboard-settlement]", summaryData.settlementAmount);
     setMoney("[data-dashboard-savings]", summaryData.savedTotal);
 
     const balanceCard = this.root.querySelector("[data-dashboard-net-card]");
