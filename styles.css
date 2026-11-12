@@ -3095,7 +3095,12 @@ body::-webkit-scrollbar,
   position: absolute;
   z-index: 1;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.45) 0%,
+    rgba(15, 23, 42, 0.85) 70%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
   content: "";
   pointer-events: none;
 }
@@ -3373,6 +3378,28 @@ body::-webkit-scrollbar,
   background: var(--coral);
 }
 
+.monthly-savings-card .tip-card {
+  margin-top: 14px;
+  padding: 16px 48px 16px 16px;
+  border-color: var(--amber-border);
+  color: var(--text-body);
+  background: var(--amber-light);
+  box-shadow: none;
+}
+
+.monthly-savings-card .tip-card .eyebrow {
+  color: var(--amber);
+}
+
+.monthly-savings-card #tip-quote {
+  color: var(--text-body);
+}
+
+.monthly-savings-card .tip-sparkle {
+  top: 12px;
+  right: 14px;
+}
+
 .goal-selector {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
@@ -3408,6 +3435,37 @@ body::-webkit-scrollbar,
 .goal-selector-card small {
   color: var(--text-muted);
   font-size: var(--text-2xs);
+}
+
+.goal-actions .button,
+.goal-edit-actions .button {
+  border-color: var(--border-color);
+  color: var(--text-body);
+  background: var(--bg-subtle);
+}
+
+.goal-actions .button:hover,
+.goal-edit-actions .button:hover {
+  border-color: var(--border-hover);
+  color: var(--text-main);
+  background: var(--bg-muted);
+}
+
+.goal-actions .goal-delete-button:hover {
+  border-color: var(--coral-border) !important;
+  color: var(--coral-dark) !important;
+  background: var(--coral-light) !important;
+}
+
+.goal-edit-actions .button-primary {
+  border-color: transparent;
+  color: var(--text-inverse);
+  background: var(--primary-gradient);
+}
+
+.goal-edit-actions .button-primary:hover {
+  color: var(--text-inverse);
+  filter: brightness(1.08);
 }
 
 @media (max-width: 380px) {

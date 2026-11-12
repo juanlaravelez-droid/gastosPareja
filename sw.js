@@ -1,4 +1,4 @@
-const CACHE_NAME = "duobalance-shell-v4";
+const CACHE_NAME = "duobalance-shell-v5";
 const CORE_ASSETS = [
   "./index.html",
   "./manifest.json",

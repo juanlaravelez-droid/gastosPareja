@@ -58,3 +58,26 @@ test("provides PWA metadata and install controls in the page", async () => {
   assert.match(html, /data-pwa-install/);
   assert.match(html, /Toca Compartir y luego “Agregar al inicio”/);
 });
+
+test("shows the main goal and other plans before monthly contributions and advice", async () => {
+  const html = await readFile(path.join(root, "index.html"), "utf8");
+  const goalsView = html.slice(
+    html.indexOf('<section id="view-goals"'),
+    html.indexOf('<section id="view-balance"'),
+  );
+  const heroPosition = goalsView.indexOf("savings-hero-card");
+  const plansPosition = goalsView.indexOf("secondary-goals");
+  const monthlyPosition = goalsView.indexOf("monthly-savings-card");
+  const tipPosition = goalsView.indexOf("tip-card");
+  const monthlyEndPosition = goalsView.indexOf("</section>", monthlyPosition);
+  const settingsView = html.slice(
+    html.indexOf('<section id="view-settings"'),
+    html.indexOf("</main>"),
+  );
+
+  assert.ok(heroPosition >= 0);
+  assert.ok(plansPosition > heroPosition);
+  assert.ok(monthlyPosition > plansPosition);
+  assert.ok(tipPosition > monthlyPosition && tipPosition < monthlyEndPosition);
+  assert.doesNotMatch(settingsView, /tip-card/);
+});
